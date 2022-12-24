@@ -4,11 +4,15 @@ import (
         "fmt"
         "log"
         "io/ioutil"
+        "sync"
 
         "gopkg.in/yaml.v3"
 )
 
-var config = T{}
+var (
+        mu     sync.Mutex
+        config T
+)
 
 type T struct {
 	FileConversionRules []struct {
@@ -29,6 +33,8 @@ func load_config() {
                 log.Fatalf("data.Get err #%v", err)
         }
 
+        mu.Lock()
+        defer mu.Unlock()
         err = yaml.Unmarshal([]byte(data), &config)
         if err != nil {
                 log.Fatalf("error: %v", err)
