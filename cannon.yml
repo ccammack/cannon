@@ -6,7 +6,7 @@ file_conversion_rules:
     tag: blabla-hostname
   -
     type: extension
-    matches: [rule1]
+    matches: [mov]
     command: blablabla-host
     tag: blabla-hostname
   -
