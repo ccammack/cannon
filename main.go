@@ -1,23 +1,53 @@
-
 package main
 
 import (
-    "fmt"
-    "log"
-    "net/http"
+        "fmt"
+        "log"
+
+        "gopkg.in/yaml.v3"
 )
 
-const jsFile = `alert('Hello World!');`
+
+var data = `
+file_conversion_rules:
+  -
+    type: extension
+    matches: [mp3]
+    tag: blabla-hostname
+  -
+    type: extension
+    matches: [rule1]
+    command: blablabla-host
+    tag: blabla-hostname
+  -
+    type: extension
+    matches: [mp4, jpg]
+    command: ls -alg
+    tag: video
+  -
+    type: mime
+    matches: [application/text]
+    command: more t.txt
+    tag: head
+`
+
+type T struct {
+	FileConversionRules []struct {
+		Type    string   `yaml:"type"`
+		Matches []string `yaml:"matches"`
+		Command string   `yaml:"command,omitempty"`
+		Tag     string   `yaml:"tag"`
+	} `yaml:"file_conversion_rules"`
+}
 
 func main() {
-    http.HandleFunc("/file.js", JsHandler)
+        t := T{}
 
-    log.Fatal(http.ListenAndServe(":5000", nil))
+        err := yaml.Unmarshal([]byte(data), &t)
+        if err != nil {
+                log.Fatalf("error: %v", err)
+        }
+        fmt.Printf("--- t:\n%v\n\n", t)
+
 }
 
-func JsHandler(w http.ResponseWriter, r *http.Request) {
-    // Getting the headers so we can set the correct mime type
-    headers := w.Header()
-    headers["Content-Type"] = []string{"application/javascript"}
-    fmt.Fprint(w, jsFile)
-}

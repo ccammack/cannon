@@ -1,6 +1,15 @@
 
 
 
+go get gopkg.in/yaml.v3
+
+
+https://stackoverflow.com/questions/28682439/go-parse-yaml-file
+https://zhwt.github.io/yaml-to-go/
+
+
+
+
 https://github.com/ethanpil/sheret
 https://github.com/ethanpil/sheret/blob/master/src/sheret.go
 
