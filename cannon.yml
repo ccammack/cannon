@@ -1,0 +1,22 @@
+
+file_conversion_rules:
+  -
+    type: extension
+    matches: [mp3]
+    tag: blabla-hostname
+  -
+    type: extension
+    matches: [rule1]
+    command: blablabla-host
+    tag: blabla-hostname
+  -
+    type: extension
+    matches: [mp4, jpg]
+    command: ls -alg
+    tag: video
+  -
+    type: mime
+    matches: [application/text]
+    command: more t.txt
+    tag: head
+

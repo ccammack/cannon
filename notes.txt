@@ -1,16 +1,35 @@
 
 
 
-go get gopkg.in/yaml.v3
-
+1. parse literal string to design format
 
 https://stackoverflow.com/questions/28682439/go-parse-yaml-file
 https://zhwt.github.io/yaml-to-go/
 
+$ go get gopkg.in/yaml.v3
+
+2. load yaml from a file
+
+https://stackoverflow.com/questions/30947534/how-to-read-a-yaml-file
 
 
+
+
+
+3. detect file changes and reload the file
+
+https://github.com/fsnotify/fsnotify
+
+$ go get github.com/fsnotify/fsnotify
+
+
+
+
+
+https://github.com/gabriel-vasile/mimetype
 
 https://github.com/ethanpil/sheret
 https://github.com/ethanpil/sheret/blob/master/src/sheret.go
+
 
 
