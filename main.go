@@ -2,13 +2,12 @@ package main
 
 import (
   "log"
+  "os"
   "fmt"
-   "os"
-  "os/signal"
-  "syscall"
-  "io/ioutil"
   "sync"
-  "gopkg.in/yaml.v3"
+  "github.com/spf13/viper"
+  "github.com/fsnotify/fsnotify"
+//  "github.com/mitchellh/mapstructure"
 )
 
 var (
@@ -31,39 +30,45 @@ func GetConfig() *Config {
   return config
 }
 
-func getConfigPath() string {
-  return "/home/ccammack/work/cannon/cannon.yml"
-}
-
-func loadConfig(fail bool){
-  file, err := ioutil.ReadFile(getConfigPath())
-  if err != nil {
+func loadConfig() {
+  if err := viper.ReadInConfig(); err != nil {
     log.Println("open config: ", err)
-    if fail { os.Exit(1) }
+    os.Exit(1)
+  }
+  fmt.Println(viper.AllSettings())
+  temp := new(Config)
+  if err := viper.Unmarshal(&temp); err != nil {
+  //if err := mapstructure.Decode(viper.AllSettings(), &temp); err != nil {
+  //if err := mapstructure.Decode(viper.GetStringMapString("file_conversion_rules"), temp); err != nil {
+  //if err := mapstructure.Decode(viper.GetStringMap("file_conversion_rules"), temp); err != nil {
+  //if err := mapstructure.Decode(viper.Get("file_conversion_rules"), temp); err != nil {
+  //if err := mapstructure.Decode(viper.GetStringSlice("file_conversion_rules"), temp); err != nil {
+      fmt.Println(err)
+      log.Println("parse config: ", err)
+      os.Exit(1)
   }
 
-  temp := new(Config)
-  if err = yaml.Unmarshal(file, temp); err != nil {
-    log.Println("parse config: ", err)
-    if fail { os.Exit(1) }
-  }
+  fmt.Println(temp)
+  fmt.Printf("--- t:\n%v\n\n", temp)
   configLock.Lock()
   config = temp
+  fmt.Println(config)
   fmt.Printf("--- t:\n%v\n\n", config)
   configLock.Unlock()
+  fmt.Println(viper.AllSettings())
 }
 
 func init() {
-  loadConfig(true)
-  s := make(chan os.Signal, 1)
-  signal.Notify(s, syscall.SIGUSR2)
-  go func() {
-    for {
-      <-s
-      loadConfig(false)
-      log.Println("Reloaded")
-    }
-  }()
+  viper.SetConfigType("yaml")
+  viper.SetConfigName("config")
+  viper.AddConfigPath("/home/ccammack/work/cannon")
+  viper.AddConfigPath(".")
+  viper.OnConfigChange(func(e fsnotify.Event) {
+    fmt.Println("Config file changed:", e.Name)
+    loadConfig()
+  })
+  viper.WatchConfig()
+  loadConfig()
 }
 
 func main() {
