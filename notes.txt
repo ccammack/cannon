@@ -19,6 +19,16 @@ https://github.com/fsnotify/fsnotify
 $ go get github.com/fsnotify/fsnotify
 
 
+https://github.com/spf13/viper#watching-and-re-reading-config-files
+https://search.brave.com/search?q=golanf+viper+yaml+example&source=desktop
+https://stackoverflow.com/questions/52585309/how-do-i-use-viper-to-get-a-value-from-a-nested-yaml-structure
+https://stackoverflow.com/questions/41631008/mapping-nested-config-yaml-to-struct
+https://github.com/fsnotify/fsnotify
+https://github.com/mitchellh/mapstructure
+
+
+
+https://go.dev/play/
 
 
 
