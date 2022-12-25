@@ -26,6 +26,10 @@ https://stackoverflow.com/questions/41631008/mapping-nested-config-yaml-to-struc
 https://github.com/fsnotify/fsnotify
 https://github.com/mitchellh/mapstructure
 
+https://www.openmymind.net/Golang-Hot-Configuration-Reload/
+https://www.fatalerrors.org/a/golang-configuration-file-hot-update.html
+
+https://stackoverflow.com/questions/52585309/how-do-i-use-viper-to-get-a-value-from-a-nested-yaml-structure
 
 
 https://go.dev/play/
