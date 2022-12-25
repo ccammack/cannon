@@ -12,10 +12,6 @@ $ go get gopkg.in/yaml.v3
 
 https://stackoverflow.com/questions/30947534/how-to-read-a-yaml-file
 
-
-
-
-
 3. detect file changes and reload the file
 
 https://github.com/fsnotify/fsnotify

@@ -2,12 +2,12 @@
 file_conversion_rules:
   -
     type: extension
-    matches: [mp3]
+    matches: [mp3,pdf]
     tag: blabla-hostname
   -
     type: extension
     matches: [mov]
-    command: blablabla-host
+    command: whereis emacs
     tag: blabla-hostname
   -
     type: extension
