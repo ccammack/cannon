@@ -1,8 +1,6 @@
 package main
 
 import (
-  "log"
-  "fmt"
   "sync"
   "github.com/spf13/viper"
   "github.com/fsnotify/fsnotify"
@@ -28,35 +26,34 @@ func GetConfig() *Config {
   return config
 }
 
-func loadConfig() {
+func loadConfig() error {
   if err := viper.ReadInConfig(); err != nil {
-    log.Println("open config: ", err)
-    panic(err)
+    return err
   }
   temp := new(Config)
   if err := viper.Unmarshal(&temp); err != nil {
-      log.Println("parse config: ", err)
-      panic(err)
+    return err
   }
   configLock.Lock()
   config = temp
   configLock.Unlock()
-  fmt.Println(config)
+  return nil
 }
 
-func init() {
+func main() {
+  // load config file
   viper.SetConfigType("yaml")
   viper.SetConfigName("config")
   viper.AddConfigPath(".")
   viper.OnConfigChange(func(e fsnotify.Event) {
-    fmt.Println("Config file changed:", e.Name)
     loadConfig()
   })
   viper.WatchConfig()
-  loadConfig()
-}
+  if err := loadConfig(); err != nil {
+    panic(err)
+  }
 
-func main() {
+  // start web server
   for {
   }
 }
