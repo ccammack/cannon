@@ -3,7 +3,7 @@ file_conversion_rules:
   -
     type: extension
     matches: [mp3,pdf]
-    tag: blabla-hostname
+    tag: hostname
   -
     type: extension
     matches: [mov]

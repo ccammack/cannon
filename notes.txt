@@ -5,6 +5,15 @@
 
 https://stackoverflow.com/questions/28682439/go-parse-yaml-file
 https://zhwt.github.io/yaml-to-go/
+https://github.com/spf13/viper/issues/385#issuecomment-337264721
+
+2. install viper
+
+
+
+
+
+
 
 $ go get gopkg.in/yaml.v3
 
