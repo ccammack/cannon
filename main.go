@@ -1,6 +1,12 @@
+/*
+Copyright © 2022 Chris Cammack <chris@ccammack.com>
+
+*/
+
 package main
 
 import (
+  "cannon/cmd"
   "sync"
   "github.com/spf13/viper"
   "github.com/fsnotify/fsnotify"
@@ -41,6 +47,9 @@ func loadConfig() error {
 }
 
 func main() {
+  // process command line
+  cmd.Execute()
+
   // load config file
   viper.SetConfigType("yaml")
   viper.SetConfigName("config")
@@ -54,7 +63,7 @@ func main() {
   }
 
   // start web server
-  for {
-  }
+  //for {
+  //}
 }
 
