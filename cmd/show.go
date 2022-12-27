@@ -6,8 +6,8 @@ package cmd
 
 import (
 	"fmt"
-
 	"github.com/spf13/cobra"
+	"cannon/config"
 )
 
 // showCmd represents the show command
@@ -22,7 +22,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("show called")
-		//fmt.Println(GetConfig())
+		fmt.Println(config.GetConfig())
 	},
 }
 
