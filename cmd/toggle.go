@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"cannon/server"
 )
 
 // toggleCmd represents the toggle command
@@ -22,6 +23,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("toggle called")
+		server.Toggle()
 	},
 }
 

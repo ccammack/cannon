@@ -12,9 +12,5 @@ import (
 func main() {
   // process command line
   cmd.Execute()
-
-  // start web server
-  //for {
-  //}
 }
 
