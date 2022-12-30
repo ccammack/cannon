@@ -7,8 +7,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"cannon/server"
+
+	"github.com/spf13/cobra"
 )
 
 // toggleCmd represents the toggle command

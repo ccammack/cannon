@@ -1,4 +1,7 @@
 
+settings:
+  port: 8888
+
 file_conversion_rules:
   -
     type: extension
