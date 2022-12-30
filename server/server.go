@@ -12,7 +12,6 @@ import (
 	"context"
 	"fmt"
 	"html"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -22,23 +21,23 @@ var (
 	server *http.Server
 )
 
-func portInUse(port int) bool {
+func serverIsRunnning() (int, bool) {
+	// read config
+	port := config.GetConfig().Settings.Port
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
 
+	// return true if the port is already in use (assume that's the server)
 	if err != nil {
-		return true
+		return port, true
 	}
 
 	_ = ln.Close()
-	return false
+	return port, false
 }
 
 func Start() {
-	// read config
-	port := config.GetConfig().Settings.Port
-
 	// start the server if the port is not in use
-	if !portInUse(port) {
+	if port, running := serverIsRunnning(); !running {
 		// add routes
 		mux := http.NewServeMux()
 		mux.HandleFunc("/status", statusHandler)
@@ -54,28 +53,22 @@ func Start() {
 }
 
 func Stop() {
-	// read config
-	port := config.GetConfig().Settings.Port
-
 	// stop the server if the port is in use
-	if portInUse(port) {
-		// call rest /stop
+	if port, running := serverIsRunnning(); running {
+		// call /stop endpoint
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%v/stop", port))
 		if err != nil {
 			// handle error
 		}
 		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
-		fmt.Println(body)
+		//body, err := io.ReadAll(resp.Body)
+		//fmt.Println(body)
 	}
 }
 
 func Toggle() {
-	// read config
-	port := config.GetConfig().Settings.Port
-
 	// stop the server if the port is in use; start it otherwise
-	if portInUse(port) {
+	if _, running := serverIsRunnning(); running {
 		Stop()
 	} else {
 		Start()
