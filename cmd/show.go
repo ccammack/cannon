@@ -5,21 +5,19 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-	"github.com/spf13/cobra"
 	"cannon/config"
+	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
 // showCmd represents the show command
 var showCmd = &cobra.Command{
-	Use:   "show",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Use:   "show [file]",
+	Short: "Preview a file in the browser",
+	Long: `cannon show [file]
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Preview a file in the browser.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("show called")
 		fmt.Println(config.GetConfig())

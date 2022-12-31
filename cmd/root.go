@@ -10,18 +10,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "cannon",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Cannon is a brute-force file previewer for terminal file managers",
+	Long: `Cannon is a brute-force file previewer for terminal file managers like these:
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	https://github.com/dylanaraps/fff
+	https://github.com/gokcehan/lf
+	https://github.com/jarun/nnn
+	https://github.com/ranger/ranger
+
+It uses conversion rules defined in the configuration file to convert
+each selected file into its web-standard equivalent and then displays the
+converted file in a web browser using a static http server.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -47,5 +49,3 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
-
-

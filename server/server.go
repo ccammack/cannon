@@ -42,6 +42,7 @@ func Start() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/status", statusHandler)
 		mux.HandleFunc("/stop", stopHandler)
+		mux.HandleFunc("/stop", updateHandler)
 
 		// start server
 		server = &http.Server{
@@ -88,4 +89,6 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// updateHandler
+func updateHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "update, %q", html.EscapeString(r.URL.Path))
+}
