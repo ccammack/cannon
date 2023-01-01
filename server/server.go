@@ -41,8 +41,8 @@ func Start() {
 		// add routes
 		mux := http.NewServeMux()
 		mux.HandleFunc("/status", statusHandler)
+		mux.HandleFunc("/update", updateHandler)
 		mux.HandleFunc("/stop", stopHandler)
-		mux.HandleFunc("/stop", updateHandler)
 
 		// start server
 		server = &http.Server{
@@ -80,6 +80,10 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "status, %q", html.EscapeString(r.URL.Path))
 }
 
+func updateHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "update, %q", html.EscapeString(r.URL.Path))
+}
+
 func stopHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Stopped, %s!", r.URL.Path[1:])
 	go func() {
@@ -87,8 +91,4 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 	}()
-}
-
-func updateHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "update, %q", html.EscapeString(r.URL.Path))
 }

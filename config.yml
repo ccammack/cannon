@@ -1,22 +1,29 @@
 
+# version: 1.0 # do not change
+
 settings:
   port: 8888
+  # autostart: true # cannon show [file] will start the server automatically
 
 file_conversion_rules:
   -
+    # native html5 image formats do not need any conversion
     type: extension
-    matches: [mp3,pdf]
-    tag: hostname
+    matches: [apng,avif,gif,jpg,jpeg,jfif,pjpeg,pjp,png,svg,webp]
+    tag: img
   -
+    # convert image formats to jpg using imagemagick
+    # $ convert identify -list format | less
     type: extension
-    matches: [mov]
-    command: whereis emacs
-    tag: blabla-hostname
+    matches: [bmp,ico,cur,tif,tiff]
+    command: convert ${INPUT} ${OUTPUT}.jpg
+    tag: img
   -
+    # convert pdf 1st page to jpg using imagemagick
     type: extension
-    matches: [mp4, jpg]
-    command: ls -alg
-    tag: video
+    matches: [pdf]
+    command: convert -density 150 ${INPUT}[0] -quality 90 ${OUTPUT}.jpg
+    tag: img
   -
     type: mime
     matches: [application/text]
