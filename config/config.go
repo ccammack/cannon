@@ -54,6 +54,7 @@ func init() {
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
+	viper.AddConfigPath("/home/ccammack/work/cannon")
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		loadConfig()
 	})

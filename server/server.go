@@ -12,7 +12,6 @@ import (
 	"context"
 	"fmt"
 	"html"
-	"log"
 	"net"
 	"net/http"
 )
@@ -49,7 +48,8 @@ func Start() {
 			Addr:    fmt.Sprintf(":%v", port),
 			Handler: mux,
 		}
-		log.Fatal(server.ListenAndServe(), nil)
+		// log.Fatal(server.ListenAndServe(), nil)
+		server.ListenAndServe()
 	}
 }
 
@@ -85,10 +85,10 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Stopped, %s!", r.URL.Path[1:])
+	// fmt.Fprintf(w, "Stopped, %s!", r.URL.Path[1:])
 	go func() {
 		if err := server.Shutdown(context.Background()); err != nil {
-			log.Fatal(err)
+			// log.Fatal(err)
 		}
 	}()
 }
