@@ -3,7 +3,9 @@
 
 settings:
   port: 8888
-  # autostart: true # cannon show [file] will start the server automatically
+  # auto_start:  true # cannon <file> will start the server automatically
+  # cache_count: 16   # precache this many files in the background
+  # proc_count:  4    # do this many conversions concurrently
 
 file_conversion_rules:
   -
