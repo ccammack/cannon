@@ -6,7 +6,8 @@ package cmd
 
 import (
 	"cannon/server"
-	"log"
+	"cannon/util"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,7 +32,6 @@ var rootCmd = &cobra.Command{
 It uses rules defined in the configuration file to convert each selected
 file into its web-standard equivalent and then displays the converted file
 in a web browser using a static http server.`,
-	Args: cobra.RangeArgs(0, 1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if *start {
 			server.Start()
@@ -41,7 +41,12 @@ in a web browser using a static http server.`,
 			server.Toggle()
 		} else if len(args) > 0 {
 			// fmt.Println(args[0])
-			log.Fatal(args[0])
+			// log.Fatal(args[0])
+			// util.Append(args[0])
+			util.Append(fmt.Sprintf("%v", args))
+
+			// TODO: figure out how to handle this for all console viewers
+			os.Exit(255) // return non-zero exit code to disable preview cache
 		}
 	},
 }
