@@ -1,5 +1,5 @@
 
-# version: 1.0 # do not change
+# version: 1.0 # do not change; use a separate yaml file for each version update (config.v1.yml)
 
 settings:
   port: 8888
@@ -12,7 +12,7 @@ file_conversion_rules:
     matches: [apng,avif,gif,jpg,jpeg,jfif,pjpeg,pjp,png,svg,webp]
     tag: img
   -
-    # convert image formats to jpg using imagemagick
+    # convert other image formats to jpg using imagemagick
     # $ convert identify -list format | less
     type: extension
     matches: [bmp,ico,cur,tif,tiff]
@@ -29,4 +29,3 @@ file_conversion_rules:
     matches: [application/text]
     command: more t.txt
     tag: head
-
