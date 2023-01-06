@@ -5,9 +5,14 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"bytes"
+	"cannon/config"
 	"cannon/server"
 	"cannon/util"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -45,7 +50,29 @@ in a web browser using a static http server.`,
 			// util.Append(args[0])
 			util.Append(fmt.Sprintf("%v", args))
 
-			// TODO: figure out how to handle this for all console viewers
+			// read config and call /update endpoint
+			// TODO: wrap this in a utility function
+			port := config.GetConfig().Settings.Port
+			url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
+			postBody, _ := json.Marshal(map[string]string{
+				"file": args[0],
+			})
+			responseBody := bytes.NewBuffer(postBody)
+			resp, err := http.Post(url, "application/json", responseBody)
+			if err != nil {
+				log.Fatalf("An Error Occured %v", err)
+			}
+			defer resp.Body.Close()
+
+			// Read the response body
+			//  body, err := ioutil.ReadAll(resp.Body)
+			//  if err != nil {
+			// 	log.Fatalln(err)
+			//  }
+			//  sb := string(body)
+			//  log.Printf(sb)
+
+			// TODO: define the proper return value for all viewers and add it to config
 			os.Exit(255) // return non-zero exit code to disable preview cache
 		}
 	},

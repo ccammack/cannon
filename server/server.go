@@ -8,6 +8,7 @@ package server
 // https://gist.github.com/rgl/0351b6d9362abb32d6b55f86bd17ab65
 
 import (
+	"cannon/cache"
 	"cannon/config"
 	"context"
 	"fmt"
@@ -81,7 +82,8 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "update, %q", html.EscapeString(r.URL.Path))
+	cache.Update()
+	fmt.Fprintf(w, "update, %q", html.EscapeString(r.URL.RawQuery))
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
