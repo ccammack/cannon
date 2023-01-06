@@ -11,8 +11,8 @@ import (
 	"cannon/cache"
 	"cannon/config"
 	"context"
+	"encoding/json"
 	"fmt"
-	"html"
 	"net"
 	"net/http"
 )
@@ -38,33 +38,28 @@ func serverIsRunnning() (int, bool) {
 func Start() {
 	// start the server if the port is not in use
 	if port, running := serverIsRunnning(); !running {
-		// add routes
 		mux := http.NewServeMux()
+		mux.HandleFunc("/", pageHandler)
 		mux.HandleFunc("/status", statusHandler)
 		mux.HandleFunc("/update", updateHandler)
 		mux.HandleFunc("/stop", stopHandler)
 
-		// start server
 		server = &http.Server{
 			Addr:    fmt.Sprintf(":%v", port),
 			Handler: mux,
 		}
-		// log.Fatal(server.ListenAndServe(), nil)
 		server.ListenAndServe()
 	}
 }
 
 func Stop() {
-	// stop the server if the port is in use
+	// stop the server if the port is already in use
 	if port, running := serverIsRunnning(); running {
-		// call /stop endpoint
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%v/stop", port))
+		url := fmt.Sprintf("http://localhost:%v/%s", port, "stop")
+		resp, err := http.Get(url)
 		if err != nil {
-			// handle error
 		}
 		defer resp.Body.Close()
-		//body, err := io.ReadAll(resp.Body)
-		//fmt.Println(body)
 	}
 }
 
@@ -77,20 +72,38 @@ func Toggle() {
 	}
 }
 
+func respondJson(w http.ResponseWriter, body []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
+}
+
+func respondHtml(w http.ResponseWriter, body []byte) {
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
+}
+
+func pageHandler(w http.ResponseWriter, r *http.Request) {
+	respondHtml(w, cache.Page(r))
+}
+
 func statusHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "status, %q", html.EscapeString(r.URL.Path))
+	respondJson(w, cache.Status(r))
 }
 
 func updateHandler(w http.ResponseWriter, r *http.Request) {
-	cache.Update()
-	fmt.Fprintf(w, "update, %q", html.EscapeString(r.URL.RawQuery))
+	respondJson(w, cache.Update(r))
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
-	// fmt.Fprintf(w, "Stopped, %s!", r.URL.Path[1:])
+	body, _ := json.Marshal(map[string]string{
+		"state": "stopped",
+	})
+	respondJson(w, body)
+
 	go func() {
 		if err := server.Shutdown(context.Background()); err != nil {
-			// log.Fatal(err)
 		}
 	}()
 }

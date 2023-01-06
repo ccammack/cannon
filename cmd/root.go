@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"cannon/config"
 	"cannon/server"
-	"cannon/util"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -48,7 +47,7 @@ in a web browser using a static http server.`,
 			// fmt.Println(args[0])
 			// log.Fatal(args[0])
 			// util.Append(args[0])
-			util.Append(fmt.Sprintf("%v", args))
+			// util.Append(fmt.Sprintf("%v", args))
 
 			// read config and call /update endpoint
 			// TODO: wrap this in a utility function
