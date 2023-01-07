@@ -3,6 +3,7 @@
 
 settings:
   port: 8888
+  exit: 255 # lf requires a non-zero return value to disable caching
   # auto_start:  true # cannon <file> will start the server automatically
   # cache_count: 16   # precache this many files in the background
   # proc_count:  4    # do this many conversions concurrently

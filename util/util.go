@@ -4,7 +4,12 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 */
 package util
 
-import "os"
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+)
 
 var (
 	filename = "/home/ccammack/work/cannon/log.txt"
@@ -20,5 +25,17 @@ func Append(text string) {
 
 	if _, err = f.WriteString(text + "\n"); err != nil {
 		panic(err)
+	}
+}
+
+func RespondJson(w *http.ResponseWriter, jsonMap map[string]string) {
+	// TODO: try using templates for this or find a one-liner
+	body, _ := json.Marshal(jsonMap)
+	if w != nil {
+		(*w).Header().Set("Content-Type", "application/json")
+		(*w).WriteHeader(http.StatusOK)
+		(*w).Write(body)
+	} else {
+		fmt.Fprintln(os.Stdout, string(body))
 	}
 }

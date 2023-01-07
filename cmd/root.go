@@ -21,6 +21,8 @@ var (
 	start  *bool
 	stop   *bool
 	toggle *bool
+	page   *bool
+	status *bool
 )
 
 var rootCmd = &cobra.Command{
@@ -43,14 +45,12 @@ in a web browser using a static http server.`,
 			server.Stop()
 		} else if *toggle {
 			server.Toggle()
+		} else if *page {
+			server.Page()
+		} else if *status {
+			server.Status()
 		} else if len(args) > 0 {
-			// fmt.Println(args[0])
-			// log.Fatal(args[0])
-			// util.Append(args[0])
-			// util.Append(fmt.Sprintf("%v", args))
-
-			// read config and call /update endpoint
-			// TODO: wrap this in a utility function
+			// send file path argument to /update endpoint
 			port := config.GetConfig().Settings.Port
 			url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
 			postBody, _ := json.Marshal(map[string]string{
@@ -71,8 +71,9 @@ in a web browser using a static http server.`,
 			//  sb := string(body)
 			//  log.Printf(sb)
 
-			// TODO: define the proper return value for all viewers and add it to config
-			os.Exit(255) // return non-zero exit code to disable preview cache
+			// lf requires a non-zero return value to disable caching
+			exit := config.GetConfig().Settings.Exit
+			os.Exit(exit)
 		}
 	},
 }
@@ -88,4 +89,6 @@ func init() {
 	start = rootCmd.Flags().BoolP("start", "s", false, "Start the preview server")
 	stop = rootCmd.Flags().BoolP("stop", "p", false, "Stop the preview server")
 	toggle = rootCmd.Flags().BoolP("toggle", "t", false, "Toggle the preview server on and off")
+	page = rootCmd.Flags().BoolP("page", "g", false, "Display the current page HTML for testing")
+	status = rootCmd.Flags().BoolP("status", "u", false, "Display the server status for testing")
 }

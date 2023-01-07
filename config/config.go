@@ -20,6 +20,7 @@ var (
 type Config struct {
 	Settings struct {
 		Port int `mapstructure:"port"`
+		Exit int `mapstructure:"exit"`
 	} `mapstructure:"settings"`
 	FileConversionRules []struct {
 		Type    string   `mapstructure:"type"`

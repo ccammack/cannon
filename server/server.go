@@ -10,8 +10,8 @@ package server
 import (
 	"cannon/cache"
 	"cannon/config"
+	"cannon/util"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -72,35 +72,37 @@ func Toggle() {
 	}
 }
 
-func respondJson(w http.ResponseWriter, body []byte) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+func Page() {
+	// display the current page HTML for testing
+	cache.Page(nil)
 }
 
-func respondHtml(w http.ResponseWriter, body []byte) {
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+func Status() {
+	// display the server status for testing
+	cache.Status(nil)
 }
 
 func pageHandler(w http.ResponseWriter, r *http.Request) {
-	respondHtml(w, cache.Page(r))
+	// handle route /
+	cache.Page(&w)
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
-	respondJson(w, cache.Status(r))
+	// handle route /status
+	cache.Status(&w)
 }
 
 func updateHandler(w http.ResponseWriter, r *http.Request) {
-	respondJson(w, cache.Update(r))
+	// handle route /update
+	cache.Update(&w, r)
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
-	body, _ := json.Marshal(map[string]string{
+	// handle route /stop
+	body := map[string]string{
 		"state": "stopped",
-	})
-	respondJson(w, body)
+	}
+	util.RespondJson(&w, body)
 
 	go func() {
 		if err := server.Shutdown(context.Background()); err != nil {
