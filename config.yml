@@ -4,6 +4,7 @@
 settings:
   port: 8888
   exit: 255 # lf requires a non-zero return value to disable caching
+  # browser: # command to start the browser
   # auto_start:  true # cannon <file> will start the server automatically
   # cache_count: 16   # precache this many files in the background
   # proc_count:  4    # do this many conversions concurrently
@@ -13,7 +14,7 @@ file_conversion_rules:
     # native html5 image formats do not need any conversion
     type: extension
     matches: [apng,avif,gif,jpg,jpeg,jfif,pjpeg,pjp,png,svg,webp]
-    tag: img
+    tag: <img id="${ID}" src="${SRC}">
   -
     # convert other image formats to jpg using imagemagick
     # $ convert identify -list format | less

@@ -10,11 +10,12 @@ package server
 import (
 	"cannon/cache"
 	"cannon/config"
-	"cannon/util"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 )
 
 var (
@@ -42,6 +43,7 @@ func Start() {
 		mux.HandleFunc("/", pageHandler)
 		mux.HandleFunc("/status", statusHandler)
 		mux.HandleFunc("/update", updateHandler)
+		mux.HandleFunc("/file", fileHandler)
 		mux.HandleFunc("/stop", stopHandler)
 
 		server = &http.Server{
@@ -97,12 +99,32 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	cache.Update(&w, r)
 }
 
+func fileHandler(w http.ResponseWriter, r *http.Request) {
+	// handle route /update
+	cache.File(&w, r)
+}
+
 func stopHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /stop
-	body := map[string]string{
-		"state": "stopped",
+	// body := map[string]string{
+	// 	"state": "stopped",
+	// }
+	// util.RespondJson(&w, body)
+
+	type StopMessage struct {
+		State string `json:"state"`
 	}
-	util.RespondJson(&w, body)
+
+	body := StopMessage{
+		State: "stopped",
+	}
+	if w != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(body)
+	} else {
+		json.NewEncoder(os.Stdout).Encode(body)
+	}
 
 	go func() {
 		if err := server.Shutdown(context.Background()); err != nil {
