@@ -13,7 +13,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -46,15 +45,57 @@ type Resource struct {
 	Tag    string
 }
 
-// TODO: add an accessor function to protect access to the resourceMap everywhere you use it
+type Resources struct {
+	current string
+	lookup  map[string]Resource
+}
+
 var (
-	resourceKey     string
-	resourceMap     map[string]Resource
-	resourseMapLock = new(sync.RWMutex)
+	resources     *Resources
+	resoursesLock = new(sync.RWMutex)
 )
 
 func init() {
-	resourceMap = make(map[string]Resource)
+	resources = new(Resources)
+	resources.lookup = make(map[string]Resource)
+}
+
+func getResources() *Resources {
+	resoursesLock.RLock()
+	defer resoursesLock.RUnlock()
+	return resources
+}
+
+func convertFile(file string, hash string) {
+	// TODO: move file conversion into a coroutine
+	// TODO: iterate config rules and run the matching one
+	resource := Resource{
+		file,
+		hash,
+		"output",
+		"tag",
+	}
+	resources := getResources()
+	resources.lookup[hash] = resource
+}
+
+func setCurrentResource(file string) {
+	hash := makeHash(file)
+	resources := getResources()
+	resource, ok := resources.lookup[hash]
+	if !ok || (len(resource.Output) == 0) || (len(resource.Tag) == 0) {
+		// add a new null entry
+		resources.lookup[hash] = Resource{
+			file,
+			hash,
+			"",
+			"",
+		}
+
+		// perform file conversion and then fill out the resource
+		go convertFile(file, hash)
+	}
+	resources.current = hash
 }
 
 type PageData struct {
@@ -74,10 +115,10 @@ const PageTemplate = `
 <!doctype html>
 <html>
 	<head>
-		<title>Filename goes here!</title> <!-- {{.name}} -->
+		<title>{{.name}}</title>
 		<script>
-			const hash = "wdn2oiuhfiu2ncoine"; <!-- {{.hash}} -->
-			const rate = 5000;  <!-- {{.rate}} -->
+			const hash = "{{.hash}}";
+			const timer = {{.timer}};
 			let url = "";
 
 			window.onload = function(e) {
@@ -101,14 +142,14 @@ const PageTemplate = `
 						if (data.hash != hash) {
 							location.reload();
 						}
-						setTimeout(status, rate);
+						setTimeout(status, timer);
 					});
-				}, rate);
+				}, timer);
 			}
 		</script>
 	</head>
 	<body>
-		<img id="media" src="">  <!-- {{.id}} -->
+		<img id="{{.id}}" src="{{.src}}">
 	</body>
 </html>
 `
@@ -117,6 +158,13 @@ const PageTemplate = `
 // <video id="media" src="http://localhost:8888/file/wdn2oiuhfiu2ncoine"></video>
 
 func Page(w *http.ResponseWriter) {
+	data := map[string]string{
+		"name":  "Bob's File Goes Here",
+		"hash":  "w3ij2ofi3eoc34fh43kvn3o4n",
+		"timer": "5000",
+		"id":    "media",
+		"src":   "https://upload.wikimedia.org/wikipedia/commons/1/1a/Donkey_in_Clovelly%2C_North_Devon%2C_England.jpg",
+	}
 	// write the current page to either w or stdout
 	t := template.New("page")
 	t, err := t.Parse(PageTemplate)
@@ -124,9 +172,9 @@ func Page(w *http.ResponseWriter) {
 		panic(err)
 	}
 	if w != nil {
-		t.Execute(*w, nil)
+		t.Execute(*w, data)
 	} else {
-		t.Execute(os.Stdout, nil)
+		t.Execute(os.Stdout, data)
 	}
 }
 
@@ -136,11 +184,6 @@ func makeHash(s string) string {
 	hash.Write([]byte(s))
 	hashstr := hex.EncodeToString(hash.Sum(nil))
 	return hashstr
-}
-
-func convertFile(file string, hash string) (string, string) {
-	// TODO: iterate config rules and run the matching one
-	return "output", "tag"
 }
 
 func Update(w *http.ResponseWriter, r *http.Request) {
@@ -164,29 +207,8 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	// fmt.Print(params.File)
 	// util.Append(params.File)
 
-	// hash the filename
-	hash := makeHash(params.File)
-
-	// TODO: protect resourceMap from concurrent access
-
-	// find or create a matching entry
-	resource, ok := resourceMap[hash]
-	if ok {
-		fmt.Print(resource)
-	} else {
-		output, tag := convertFile(params.File, hash)
-		resource = Resource{
-			params.File,
-			hash,
-			output,
-			tag,
-		}
-		resourceMap[hash] = resource
-	}
-	fmt.Print(resourceMap)
-
-	// update the resourceKey
-	resourceKey = hash
+	// set the current file to display
+	setCurrentResource(params.File)
 
 	// body := map[string]string{
 	// 	"state": "updated",
@@ -210,6 +232,10 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 }
 
 func File(w *http.ResponseWriter, r *http.Request) {
+	// TODO: match /file/wdn2oiuhfiu2ncoine
+	// https://gist.github.com/reagent/043da4661d2984e9ecb1ccb5343bf438
+	// https://www.honeybadger.io/blog/go-web-services/
+
 	hash := r.URL.Query().Get("hash")
 	if hash == "wdn2oiuhfiu2ncoine" {
 		http.ServeFile(*w, r, "/home/ccammack/Downloads/FmFAbozXoAEMm3l.jpeg")

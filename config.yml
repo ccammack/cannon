@@ -14,7 +14,7 @@ file_conversion_rules:
     # native html5 image formats do not need any conversion
     type: extension
     matches: [apng,avif,gif,jpg,jpeg,jfif,pjpeg,pjp,png,svg,webp]
-    tag: <img id="${ID}" src="${SRC}">
+    tag: <img id="{{.id}}" src="{{.src}}">
   -
     # convert other image formats to jpg using imagemagick
     # $ convert identify -list format | less
