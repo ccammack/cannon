@@ -10,11 +10,15 @@ Copyright © 2022 Chris Cammack <chris@ccammack.com>
 package cache
 
 import (
+	"cannon/util"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"html/template"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"sync"
 )
@@ -39,15 +43,16 @@ import (
 // https://yourbasic.org/golang/json-example/
 
 type Resource struct {
-	Input  string
-	Hash   string
-	Output string
-	Tag    string
+	filenameIn     string
+	filenameInHash string
+	filenameOut    string
+	html           string
+	htmlHash       string
 }
 
 type Resources struct {
-	current string
-	lookup  map[string]Resource
+	currentHash    string
+	resourceLookup map[string]Resource
 }
 
 var (
@@ -55,9 +60,30 @@ var (
 	resoursesLock = new(sync.RWMutex)
 )
 
+func makeHash(s string) string {
+	// TODO: is sha1 a good choice here?
+	hash := sha1.New()
+	hash.Write([]byte(s))
+	hashstr := hex.EncodeToString(hash.Sum(nil))
+	return hashstr
+}
+
 func init() {
 	resources = new(Resources)
-	resources.lookup = make(map[string]Resource)
+	resources.resourceLookup = make(map[string]Resource)
+
+	// add default resource
+	hash := "0"
+	html := "<p>Waiting...</p>"
+	resource := Resource{
+		"Waiting...",
+		hash,
+		"",
+		html,
+		makeHash(html),
+	}
+	resources.resourceLookup[hash] = resource
+	resources.currentHash = hash
 }
 
 func getResources() *Resources {
@@ -69,25 +95,31 @@ func getResources() *Resources {
 func convertFile(file string, hash string) {
 	// TODO: move file conversion into a coroutine
 	// TODO: iterate config rules and run the matching one
+
+	html := "<img src='##document.location.href##file?hash=" + hash + "'>"
+	//html := file
+
 	resource := Resource{
 		file,
 		hash,
-		"output",
-		"tag",
+		file,
+		html,
+		makeHash(html),
 	}
 	resources := getResources()
-	resources.lookup[hash] = resource
+	resources.resourceLookup[hash] = resource
 }
 
 func setCurrentResource(file string) {
 	hash := makeHash(file)
 	resources := getResources()
-	resource, ok := resources.lookup[hash]
-	if !ok || (len(resource.Output) == 0) || (len(resource.Tag) == 0) {
+	_, ok := resources.resourceLookup[hash]
+	if !ok {
 		// add a new null entry
-		resources.lookup[hash] = Resource{
+		resources.resourceLookup[hash] = Resource{
 			file,
 			hash,
+			"",
 			"",
 			"",
 		}
@@ -95,76 +127,93 @@ func setCurrentResource(file string) {
 		// perform file conversion and then fill out the resource
 		go convertFile(file, hash)
 	}
-	resources.current = hash
-}
-
-type PageData struct {
-	// id
-	// name
-	// hash
-	// tag
-	// status url
-
-	Id    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Phone string `json:"phone"`
+	resources.currentHash = hash
 }
 
 const PageTemplate = `
 <!doctype html>
 <html>
 	<head>
-		<title>{{.name}}</title>
+		<title>{{.filename}}</title>
 		<script>
-			const hash = "{{.hash}}";
-			const timer = {{.timer}};
-			let url = "";
+			// let filehash = "{{.filehash}}";
+			// let htmlhash = "{{.htmlhash}}";
+			let filehash = "0";
+			let htmlhash = "0";
+
+			//const html = "{{.html}}"
+
+			function replaceContent(html) {
+				console.log("replaceContent")
+				const container = document.getElementById("{{.containerid}}");
+				console.log(container)
+				if (container) {
+					const inner = html.replace("##document.location.href##", document.location.href)
+					container.innerHTML = inner;
+				}
+			}
 
 			window.onload = function(e) {
 				// copy server address from document.location.href
 				console.log("onload");
-				url = document.location.href + "status";
-				const media = document.getElementById("media");
-				console.log(media)
-				if (media) {
-					console.log(media.tagName);
-					media.src = document.location.href + "file?hash=" + hash;
-				}
+
+				//replaceContent(html)
+
+				const statusurl = document.location.href + "status"
+				//const statusurl = "https://jsonplaceholder.typicode.com/comments?postId=1"
 
 				setTimeout(function status() {
 					// ask the server for updates and reload if needed
-					console.log("status");
-					fetch(url)
+					fetch(statusurl)
 					.then((response) => response.json())
 					.then((data) => {
 						console.log(data);
-						if (data.hash != hash) {
-							location.reload();
+
+						// if (filehash != data.filehash) {
+						// 	console.log("filehash")
+						// 	filehash = data.filehash
+						// 	//location.reload();
+						// } else if (data.htmlhash != htmlhash) {
+						// 	console.log("htmlhash")
+						// 	replaceContent(data.html)
+						// 	htmlhash = data.htmlhash;
+						// }
+
+						if (htmlhash != data.htmlhash) {
+							filehash = data.filehash
+							htmlhash = data.htmlhash;
+							document.title = data.filename
+							replaceContent(data.html)
 						}
-						setTimeout(status, timer);
+
+						setTimeout(status, {{.intervalms}});
 					});
-				}, timer);
+				}, {{.intervalms}});
 			}
 		</script>
 	</head>
 	<body>
-		<img id="{{.id}}" src="{{.src}}">
+		<div id="{{.containerid}}"></div>
 	</body>
 </html>
 `
 
-// <img id="media" src="http://localhost:8888/file/wdn2oiuhfiu2ncoine">
-// <video id="media" src="http://localhost:8888/file/wdn2oiuhfiu2ncoine"></video>
-
 func Page(w *http.ResponseWriter) {
-	data := map[string]string{
-		"name":  "Bob's File Goes Here",
-		"hash":  "w3ij2ofi3eoc34fh43kvn3o4n",
-		"timer": "5000",
-		"id":    "media",
-		"src":   "https://upload.wikimedia.org/wikipedia/commons/1/1a/Donkey_in_Clovelly%2C_North_Devon%2C_England.jpg",
+	resources := getResources()
+	resource, ok := resources.resourceLookup[resources.currentHash]
+	if !ok {
+		panic("Resource lookup failed in cache.go!")
 	}
+
+	data := map[string]string{
+		"filename":    resource.filenameIn,
+		"filehash":    resource.filenameInHash,
+		"html":        resource.html,
+		"htmlhash":    resource.htmlHash,
+		"intervalms":  "100",
+		"containerid": "container",
+	}
+
 	// write the current page to either w or stdout
 	t := template.New("page")
 	t, err := t.Parse(PageTemplate)
@@ -178,22 +227,18 @@ func Page(w *http.ResponseWriter) {
 	}
 }
 
-func makeHash(s string) string {
-	// TODO: is sha1 a good choice here?
-	hash := sha1.New()
-	hash.Write([]byte(s))
-	hashstr := hex.EncodeToString(hash.Sum(nil))
-	return hashstr
+func DumpRequest(r *http.Request) {
+	// TODO: save this info in reference.org
+	res, error := httputil.DumpRequest(r, true)
+	if error != nil {
+		log.Fatal(error)
+	}
+	fmt.Print(string(res))
+	util.Append(string(res))
 }
 
 func Update(w *http.ResponseWriter, r *http.Request) {
-	// TODO: save this info in reference.org
-	// res, error := httputil.DumpRequest(r, true)
-	// if error != nil {
-	// 	log.Fatal(error)
-	// }
-	// fmt.Print(string(res))
-	// util.Append(string(res))
+	DumpRequest(r)
 
 	// extract params from the request body
 	type Params struct {
@@ -232,21 +277,47 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 }
 
 func File(w *http.ResponseWriter, r *http.Request) {
+	DumpRequest(r)
+
 	// TODO: match /file/wdn2oiuhfiu2ncoine
 	// https://gist.github.com/reagent/043da4661d2984e9ecb1ccb5343bf438
 	// https://www.honeybadger.io/blog/go-web-services/
 
 	hash := r.URL.Query().Get("hash")
-	if hash == "wdn2oiuhfiu2ncoine" {
-		http.ServeFile(*w, r, "/home/ccammack/Downloads/FmFAbozXoAEMm3l.jpeg")
-	} else {
-		http.ServeFile(*w, r, "/home/ccammack/Downloads/FixL3ExWQAkNoiS.png")
+
+	resources := getResources()
+	resource, ok := resources.resourceLookup[hash]
+	if !ok {
+		panic("Resource lookup failed in cache.go!")
 	}
+
+	// serve the console stdout+stderr until the process completes, then serve the output file
+	http.ServeFile(*w, r, resource.filenameOut)
+
+	// if hash == "wdn2oiuhfiu2ncoine" {
+	// 	http.ServeFile(*w, r, "/home/ccammack/Downloads/FmFAbozXoAEMm3l.jpeg")
+	// } else {
+	// 	http.ServeFile(*w, r, "/home/ccammack/Downloads/FixL3ExWQAkNoiS.png")
+	// }
 
 	//http.ServeFile(*w, r, "/home/ccammack/Downloads/American P-51 Fighters Attack Tokyo, Incredible Remastered HD Footage [SAPqr3YCNmA].webm")
 }
 
 func Status(w *http.ResponseWriter) {
+	resources := getResources()
+	resource, ok := resources.resourceLookup[resources.currentHash]
+	if !ok {
+		panic("Resource lookup failed in cache.go!")
+	}
+
+	// uri := "https://<server>:<port>"
+	// if r != nil {
+	// 	uri, err := url.QueryUnescape(r.URL.Query().Get("uri"))
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
+
 	// goal
 	// util.RespondJson(w, `{"file": "the current very successful file will also go here"}`)
 
@@ -258,10 +329,16 @@ func Status(w *http.ResponseWriter) {
 
 	// works
 	type StatusMessage struct {
-		Hash string `json:"hash"`
+		Filename string `json:"filename"`
+		Filehash string `json:"filehash"`
+		Html     string `json:"html"`
+		Htmlhash string `json:"htmlhash"`
 	}
 	body := StatusMessage{
-		Hash: "wdn2oiuhfiu2ncoine",
+		Filename: resource.filenameIn,
+		Filehash: resource.filenameInHash,
+		Html:     resource.html,
+		Htmlhash: resource.htmlHash,
 	}
 
 	// works
