@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"html/template"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -61,7 +62,14 @@ type Resources struct {
 var (
 	resources     *Resources
 	resoursesLock = new(sync.RWMutex)
+	tempDir       string
 )
+
+func Exit() {
+	if len(tempDir) > 0 {
+		os.RemoveAll(tempDir)
+	}
+}
 
 func makeHash(s string) string {
 	// TODO: is sha1 a good choice here?
@@ -106,17 +114,44 @@ func convertFile(file string, hash string) {
 	// TODO: move file conversion into a coroutine
 	// TODO: iterate config rules and run the matching one
 
+	// create a temp directory the first time someone asks for a file
+	if len(tempDir) == 0 {
+		dir, err := ioutil.TempDir("", "cannon")
+		if err != nil {
+			panic(err)
+		}
+		tempDir = dir
+	}
+
+	// create a temp output file
+	filePtr, err := ioutil.TempFile(tempDir, "preview")
+	if err != nil {
+		panic(err)
+	}
+	defer filePtr.Close()
+
+	// simulate file conversion
+	source, err := os.Open(file)
+	if err != nil {
+		panic(err)
+	}
+	defer source.Close()
+	destination, err := os.Create(filePtr.Name())
+	if err != nil {
+		panic(err)
+	}
+	defer destination.Close()
+
 	// simulate conversion delay
 	time.Sleep(10 * time.Second)
 
 	html := "<img src='{document.location.href}file?hash=" + hash + "'>"
-	//html := file
 
 	resource := Resource{
 		true, // set ready=true when when finished
 		file,
 		hash,
-		file,
+		filePtr.Name(),
 		html,
 		makeHash(html),
 	}
