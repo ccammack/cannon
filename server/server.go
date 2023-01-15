@@ -10,11 +10,14 @@ package server
 import (
 	"cannon/cache"
 	"cannon/config"
+	"cannon/util"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"os"
 )
 
@@ -82,6 +85,16 @@ func Page() {
 func Status() {
 	// display the server status for testing
 	cache.Status(nil)
+}
+
+func dumpRequest(r *http.Request) {
+	// TODO: save this info in reference.org
+	res, error := httputil.DumpRequest(r, true)
+	if error != nil {
+		log.Fatal(error)
+	}
+	fmt.Print(string(res))
+	util.Append(string(res))
 }
 
 func pageHandler(w http.ResponseWriter, r *http.Request) {

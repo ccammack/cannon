@@ -10,17 +10,19 @@ Copyright © 2022 Chris Cammack <chris@ccammack.com>
 package cache
 
 import (
-	"cannon/util"
+	"cannon/config"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"html/template"
-	"log"
 	"net/http"
-	"net/http/httputil"
 	"os"
+	"path/filepath"
+	"strconv"
 	"sync"
+	"time"
+
+	"golang.org/x/exp/maps"
 )
 
 // https://vivek-syngh.medium.com/http-response-in-golang-4ca1b3688d6
@@ -43,6 +45,7 @@ import (
 // https://yourbasic.org/golang/json-example/
 
 type Resource struct {
+	ready          bool
 	filenameIn     string
 	filenameInHash string
 	filenameOut    string
@@ -72,18 +75,18 @@ func init() {
 	resources = new(Resources)
 	resources.resourceLookup = make(map[string]Resource)
 
-	// add default resource
-	hash := "0"
-	html := "<p>Waiting...</p>"
-	resource := Resource{
-		"Waiting...",
-		hash,
-		"",
-		html,
-		makeHash(html),
-	}
-	resources.resourceLookup[hash] = resource
-	resources.currentHash = hash
+	// add a default resource
+	// hash := "0"
+	// html := "<p>Waiting for file...</p>"
+	// resource := Resource{
+	// 	"Cannon preview",
+	// 	hash,
+	// 	"",
+	// 	html,
+	// 	makeHash(html),
+	// }
+	// resources.resourceLookup[hash] = resource
+	// resources.currentHash = hash
 }
 
 func getResources() *Resources {
@@ -96,10 +99,14 @@ func convertFile(file string, hash string) {
 	// TODO: move file conversion into a coroutine
 	// TODO: iterate config rules and run the matching one
 
+	// simulate conversion delay
+	time.Sleep(10 * time.Second)
+
 	html := "<img src='##document.location.href##file?hash=" + hash + "'>"
 	//html := file
 
 	resource := Resource{
+		true, // set ready=true when when finished
 		file,
 		hash,
 		file,
@@ -117,6 +124,7 @@ func setCurrentResource(file string) {
 	if !ok {
 		// add a new null entry
 		resources.resourceLookup[hash] = Resource{
+			false,
 			file,
 			hash,
 			"",
@@ -130,89 +138,124 @@ func setCurrentResource(file string) {
 	resources.currentHash = hash
 }
 
+func getCurrentResourceData() map[string]string {
+	// default values
+	data := map[string]string{
+		"interval": strconv.Itoa(config.GetConfig().Settings.Interval),
+	}
+
+	resources := getResources()
+	if len(resources.resourceLookup) == 0 {
+		// serve default values until the first file is selected
+		html := "<p>Waiting for file...</p>"
+		maps.Copy(data, map[string]string{
+			"title":    "Cannon preview",
+			"filehash": "0",
+			"html":     html,
+			"htmlhash": makeHash(html),
+		})
+		// data = map[string]string{
+		// 	"title":    "Cannon preview",
+		// 	"filehash": "0",
+		// 	"html":     html,
+		// 	"htmlhash": makeHash(html),
+		// }
+	} else {
+		resource, ok := resources.resourceLookup[resources.currentHash]
+		if !ok {
+			panic("Resource lookup failed in cache.go!")
+		}
+
+		if !resource.ready {
+			// serve stdout+stderr until the conversion sets the output filename
+			html := "<p>Loading " + resource.filenameIn + "...</p>"
+			maps.Copy(data, map[string]string{
+				"title":    filepath.Base(resource.filenameIn),
+				"filehash": resource.filenameInHash,
+				"html":     html,
+				"htmlhash": makeHash(html),
+			})
+			// data = map[string]string{
+			// 	"title":    filepath.Base(resource.filenameIn),
+			// 	"filehash": resource.filenameInHash,
+			// 	"html":     html,
+			// 	"htmlhash": makeHash(html),
+			// }
+		} else {
+			// serve the converted output file
+			maps.Copy(data, map[string]string{
+				"title":    filepath.Base(resource.filenameIn),
+				"filehash": resource.filenameInHash,
+				"html":     resource.html,
+				"htmlhash": resource.htmlHash,
+			})
+			// data = map[string]string{
+			// 	"title":    filepath.Base(resource.filenameIn),
+			// 	"filehash": resource.filenameInHash,
+			// 	"html":     resource.html,
+			// 	"htmlhash": resource.htmlHash,
+			// }
+		}
+	}
+
+	return data
+}
+
 const PageTemplate = `
 <!doctype html>
 <html>
 	<head>
-		<title>{{.filename}}</title>
+		<title>{{.title}}</title>
 		<script>
-			// let filehash = "{{.filehash}}";
-			// let htmlhash = "{{.htmlhash}}";
 			let filehash = "0";
 			let htmlhash = "0";
-
-			//const html = "{{.html}}"
-
-			function replaceContent(html) {
-				console.log("replaceContent")
-				const container = document.getElementById("{{.containerid}}");
-				console.log(container)
-				if (container) {
-					const inner = html.replace("##document.location.href##", document.location.href)
-					container.innerHTML = inner;
-				}
-			}
-
 			window.onload = function(e) {
 				// copy server address from document.location.href
-				console.log("onload");
-
-				//replaceContent(html)
-
-				const statusurl = document.location.href + "status"
-				//const statusurl = "https://jsonplaceholder.typicode.com/comments?postId=1"
-
+				const statusurl = document.location.href + "status";
 				setTimeout(function status() {
 					// ask the server for updates and reload if needed
 					fetch(statusurl)
 					.then((response) => response.json())
 					.then((data) => {
-						console.log(data);
-
-						// if (filehash != data.filehash) {
-						// 	console.log("filehash")
-						// 	filehash = data.filehash
-						// 	//location.reload();
-						// } else if (data.htmlhash != htmlhash) {
-						// 	console.log("htmlhash")
-						// 	replaceContent(data.html)
-						// 	htmlhash = data.htmlhash;
-						// }
-
-						if (htmlhash != data.htmlhash) {
-							filehash = data.filehash
+						if ((filehash != data.filehash) || (htmlhash != data.htmlhash)) {
+							filehash = data.filehash;
 							htmlhash = data.htmlhash;
-							document.title = data.filename
-							replaceContent(data.html)
+							document.title = data.title;
+							const container = document.getElementById("container");
+							if (container) {
+								// copy server address from document.location.href
+								const inner = data.html.replace("##document.location.href##", document.location.href);
+								container.innerHTML = inner;
+							}
 						}
-
-						setTimeout(status, {{.intervalms}});
+						setTimeout(status, {{.interval}});
 					});
-				}, {{.intervalms}});
+				}, {{.interval}});
 			}
 		</script>
 	</head>
 	<body>
-		<div id="{{.containerid}}"></div>
+		<div id="container"></div>
 	</body>
 </html>
 `
 
 func Page(w *http.ResponseWriter) {
-	resources := getResources()
-	resource, ok := resources.resourceLookup[resources.currentHash]
-	if !ok {
-		panic("Resource lookup failed in cache.go!")
-	}
+	// emit html for the current page
+	data := getCurrentResourceData()
 
-	data := map[string]string{
-		"filename":    resource.filenameIn,
-		"filehash":    resource.filenameInHash,
-		"html":        resource.html,
-		"htmlhash":    resource.htmlHash,
-		"intervalms":  "100",
-		"containerid": "container",
-	}
+	// resources := getResources()
+	// resource, ok := resources.resourceLookup[resources.currentHash]
+	// if !ok {
+	// 	panic("Resource lookup failed in cache.go!")
+	// }
+	// data := map[string]string{
+	// 	"title":       filepath.Base(resource.filenameIn),
+	// 	"filehash":    resource.filenameInHash,
+	// 	"html":        resource.html,
+	// 	"htmlhash":    resource.htmlHash,
+	// 	"interval":  "100",
+	// }
 
 	// write the current page to either w or stdout
 	t := template.New("page")
@@ -227,46 +270,47 @@ func Page(w *http.ResponseWriter) {
 	}
 }
 
-func DumpRequest(r *http.Request) {
-	// TODO: save this info in reference.org
-	res, error := httputil.DumpRequest(r, true)
-	if error != nil {
-		log.Fatal(error)
-	}
-	fmt.Print(string(res))
-	util.Append(string(res))
-}
-
 func Update(w *http.ResponseWriter, r *http.Request) {
-	DumpRequest(r)
+	// update the current file to display
+
+	// works
+	// extract params from the request body
+	// type Params struct {
+	// 	File string `json:"file"`
+	// }
+	// var params Params
+	// err := json.NewDecoder(r.Body).Decode(&params)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	// extract params from the request body
-	type Params struct {
-		File string `json:"file"`
-	}
-	var params Params
+	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
 	if err != nil {
 		panic(err)
 	}
-	// fmt.Print(params.File)
-	// util.Append(params.File)
+	// fmt.Print(params)
+	// util.Append(fmt.Sprint(params))
+	// util.Append(params["file"])
 
 	// set the current file to display
-	setCurrentResource(params.File)
+	//setCurrentResource(params.file)
+	setCurrentResource(params["file"])
 
-	// body := map[string]string{
-	// 	"state": "updated",
+	// works
+	// type UpdateMessage struct {
+	// 	State string `json:"state"`
 	// }
-	// util.RespondJson(w, body)
+	// body := UpdateMessage{
+	// 	State: "updated",
+	// }
 
-	type UpdateMessage struct {
-		State string `json:"state"`
+	// write {state:updated} to either w or stdout
+	body := map[string]string{
+		"state": "updated",
 	}
 
-	body := UpdateMessage{
-		State: "updated",
-	}
 	if w != nil {
 		(*w).Header().Set("Content-Type", "application/json")
 		(*w).WriteHeader(http.StatusOK)
@@ -277,49 +321,56 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 }
 
 func File(w *http.ResponseWriter, r *http.Request) {
-	DumpRequest(r)
-
-	// TODO: match /file/wdn2oiuhfiu2ncoine
-	// https://gist.github.com/reagent/043da4661d2984e9ecb1ccb5343bf438
-	// https://www.honeybadger.io/blog/go-web-services/
-
+	// serve the requested file by hash
 	hash := r.URL.Query().Get("hash")
-
 	resources := getResources()
 	resource, ok := resources.resourceLookup[hash]
 	if !ok {
 		panic("Resource lookup failed in cache.go!")
 	}
-
-	// serve the console stdout+stderr until the process completes, then serve the output file
 	http.ServeFile(*w, r, resource.filenameOut)
-
-	// if hash == "wdn2oiuhfiu2ncoine" {
-	// 	http.ServeFile(*w, r, "/home/ccammack/Downloads/FmFAbozXoAEMm3l.jpeg")
-	// } else {
-	// 	http.ServeFile(*w, r, "/home/ccammack/Downloads/FixL3ExWQAkNoiS.png")
-	// }
-
-	//http.ServeFile(*w, r, "/home/ccammack/Downloads/American P-51 Fighters Attack Tokyo, Incredible Remastered HD Footage [SAPqr3YCNmA].webm")
 }
 
 func Status(w *http.ResponseWriter) {
-	resources := getResources()
-	resource, ok := resources.resourceLookup[resources.currentHash]
-	if !ok {
-		panic("Resource lookup failed in cache.go!")
-	}
+	body := getCurrentResourceData()
 
-	// uri := "https://<server>:<port>"
-	// if r != nil {
-	// 	uri, err := url.QueryUnescape(r.URL.Query().Get("uri"))
-	// 	if err != nil {
-	// 		panic(err)
+	// body := map[string]string{}
+
+	// resources := getResources()
+	// if len(resources.resourceLookup) == 0 {
+	// 	// serve default values until the first file is selected
+	// 	html := "<p>Now We Are Because Waiting for file...</p>"
+	// 	body = map[string]string{
+	// 		"title":    "Cannon preview",
+	// 		"filehash": "0",
+	// 		"html":     html,
+	// 		"htmlhash": makeHash(html),
+	// 	}
+	// } else {
+	// 	resource, ok := resources.resourceLookup[resources.currentHash]
+	// 	if !ok {
+	// 		panic("Resource lookup failed in cache.go!")
+	// 	}
+
+	// 	if len(resource.filenameOut) == 0 {
+	// 		// serve stdout+stderr until the conversion sets the output filename
+	// 		html := "<p>Loading " + resource.filenameIn + "...</p>"
+	// 		body = map[string]string{
+	// 			"title":    filepath.Base(resource.filenameIn),
+	// 			"filehash": resource.filenameInHash,
+	// 			"html":     html,
+	// 			"htmlhash": makeHash(html),
+	// 		}
+	// 	} else {
+	// 		// serve the converted output file
+	// 		body = map[string]string{
+	// 			"title":    filepath.Base(resource.filenameIn),
+	// 			"filehash": resource.filenameInHash,
+	// 			"html":     resource.html,
+	// 			"htmlhash": resource.htmlHash,
+	// 		}
 	// 	}
 	// }
-
-	// goal
-	// util.RespondJson(w, `{"file": "the current very successful file will also go here"}`)
 
 	// works
 	// body := map[string]string{
@@ -328,18 +379,18 @@ func Status(w *http.ResponseWriter) {
 	// util.RespondJson(w, body)
 
 	// works
-	type StatusMessage struct {
-		Filename string `json:"filename"`
-		Filehash string `json:"filehash"`
-		Html     string `json:"html"`
-		Htmlhash string `json:"htmlhash"`
-	}
-	body := StatusMessage{
-		Filename: resource.filenameIn,
-		Filehash: resource.filenameInHash,
-		Html:     resource.html,
-		Htmlhash: resource.htmlHash,
-	}
+	// type StatusMessage struct {
+	// 	Title    string `json:"title"`
+	// 	Filehash string `json:"filehash"`
+	// 	Html     string `json:"html"`
+	// 	Htmlhash string `json:"htmlhash"`
+	// }
+	// body := StatusMessage{
+	// 	Title:    filepath.Base(resource.filenameIn),
+	// 	Filehash: resource.filenameInHash,
+	// 	Html:     resource.html,
+	// 	Htmlhash: resource.htmlHash,
+	// }
 
 	// works
 	// var body map[string]interface{}

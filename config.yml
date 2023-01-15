@@ -1,9 +1,12 @@
 
-# version: 1.0 # do not change; use a separate yaml file for each version update (config.v1.yml)
+# version: 1.0 # do not change
+# should i use a separate yaml file for each version update (config.v1.yml)
 
 settings:
-  port: 8888
+  port: 8888 # server port (select an unused port above 1023)
+  interval: 100 # browser polling timeout in milliseconds
   exit: 255 # lf requires a non-zero return value to disable caching
+
   # browser: # command to start the browser
   # auto_start:  true # cannon <file> will start the server automatically
   # cache_count: 16   # precache this many files in the background
