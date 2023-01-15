@@ -87,6 +87,13 @@ func init() {
 	// }
 	// resources.resourceLookup[hash] = resource
 	// resources.currentHash = hash
+
+	config.RegisterCallback(func(event string) {
+		if event == "reload" {
+			resources := getResources()
+			resources.resourceLookup = make(map[string]Resource)
+		}
+	})
 }
 
 func getResources() *Resources {

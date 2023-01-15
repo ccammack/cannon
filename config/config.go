@@ -15,6 +15,7 @@ import (
 var (
 	config     *Config
 	configLock = new(sync.RWMutex)
+	callbacks  []func(string)
 )
 
 type Config struct {
@@ -39,6 +40,10 @@ func GetConfig() *Config {
 	return config
 }
 
+func RegisterCallback(callback func(string)) {
+	callbacks = append(callbacks, callback)
+}
+
 func loadConfig() error {
 	if err := viper.ReadInConfig(); err != nil {
 		return err
@@ -60,7 +65,11 @@ func init() {
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/home/ccammack/work/cannon")
 	viper.OnConfigChange(func(e fsnotify.Event) {
+		// reload and notify subscribers
 		loadConfig()
+		for _, callback := range callbacks {
+			callback("reload")
+		}
 	})
 	viper.WatchConfig()
 	if err := loadConfig(); err != nil {
