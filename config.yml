@@ -1,13 +1,26 @@
 
-# version: 1.0 # do not change
+# version: 1.0 # do not change format
 # should i use a separate yaml file for each version update (config.v1.yml)
 
 settings:
-  port: 8888 # server port (select an unused port above 1023)
-  interval: 100 # browser polling timeout in milliseconds
-  exit: 255 # lf requires a non-zero return value to disable caching
+  # server address and port (select an unused port above 1023)
+  server: http://localhost
+  port: 8888
 
-  # browser: # command to start the browser
+  # command and args to start the preview browser
+  # set arg to enable auto-play for sound previews
+  # requires the {url} placeholder arg in the correct position
+  browser: [ "brave-browser", "{url}" ]
+
+  # browser polling time in milliseconds
+  interval: 100
+
+  # cannon will return this exit value from the command line: $ cannon <file>
+  # lf requires a non-zero return value to disable caching
+  exit: 255
+
+
+
   # auto_start:  true # cannon <file> will start the server automatically
   # cache_count: 16   # precache this many files in the background
   # proc_count:  4    # do this many conversions concurrently

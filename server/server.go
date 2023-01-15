@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"os/exec"
+	"strings"
 )
 
 var (
@@ -39,7 +41,31 @@ func serverIsRunnning() (int, bool) {
 	return port, false
 }
 
+func startBrowser() {
+	// sleep to reduce focus flashing
+	// time.Sleep(1 * time.Second)
+
+	address := config.GetConfig().Settings.Server
+	port := config.GetConfig().Settings.Port
+	url := fmt.Sprintf("%s:%d", address, port)
+	browser := config.GetConfig().Settings.Browser
+	command := browser[0]
+	rest := browser[1:]
+	args := []string{}
+	for _, arg := range rest {
+		arg := strings.Replace(arg, "{url}", url, 1)
+		args = append(args, arg)
+	}
+	cmd := exec.Command(command, args...)
+	if err := cmd.Run(); err != nil {
+		panic(err)
+	}
+}
+
 func Start() {
+	// start the local preview browser
+	go startBrowser()
+
 	// start the server if the port is not in use
 	if port, running := serverIsRunnning(); !running {
 		mux := http.NewServeMux()

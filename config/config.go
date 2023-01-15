@@ -19,9 +19,11 @@ var (
 
 type Config struct {
 	Settings struct {
-		Port     int `mapstructure:"port"`
-		Interval int `mapstructure:"interval"`
-		Exit     int `mapstructure:"exit"`
+		Server   string   `mapstructure:"server"`
+		Port     int      `mapstructure:"port"`
+		Browser  []string `mapstructure:"browser"`
+		Interval int      `mapstructure:"interval"`
+		Exit     int      `mapstructure:"exit"`
 	} `mapstructure:"settings"`
 	FileConversionRules []struct {
 		Type    string   `mapstructure:"type"`

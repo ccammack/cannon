@@ -102,7 +102,7 @@ func convertFile(file string, hash string) {
 	// simulate conversion delay
 	time.Sleep(10 * time.Second)
 
-	html := "<img src='##document.location.href##file?hash=" + hash + "'>"
+	html := "<img src='{document.location.href}file?hash=" + hash + "'>"
 	//html := file
 
 	resource := Resource{
@@ -224,7 +224,7 @@ const PageTemplate = `
 							const container = document.getElementById("container");
 							if (container) {
 								// copy server address from document.location.href
-								const inner = data.html.replace("##document.location.href##", document.location.href);
+								const inner = data.html.replace("{document.location.href}", document.location.href);
 								container.innerHTML = inner;
 							}
 						}
