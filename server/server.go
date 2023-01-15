@@ -42,9 +42,6 @@ func serverIsRunnning() (int, bool) {
 }
 
 func startBrowser() {
-	// sleep to reduce focus flashing
-	// time.Sleep(1 * time.Second)
-
 	address := config.GetConfig().Settings.Server
 	port := config.GetConfig().Settings.Port
 	url := fmt.Sprintf("%s:%d", address, port)
