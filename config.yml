@@ -19,6 +19,9 @@ settings:
   # lf requires a non-zero return value to disable caching
   exit: 255
 
+  # precache this many files before and after the current file
+  precache: 4
+
 
 
   # auto_start:  true # cannon <file> will start the server automatically

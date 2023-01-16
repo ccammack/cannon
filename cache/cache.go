@@ -11,6 +11,7 @@ package cache
 
 import (
 	"cannon/config"
+	"cannon/util"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
@@ -22,7 +23,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
-	"time"
 
 	"golang.org/x/exp/maps"
 )
@@ -112,7 +112,7 @@ func convertFile(file string, hash string, stdoutFilename string, outputFilename
 	}
 
 	// simulate conversion delay
-	time.Sleep(10 * time.Second)
+	// time.Sleep(10 * time.Second)
 
 	// update the resource when finished
 	resources := getResources()
@@ -129,11 +129,9 @@ func convertFile(file string, hash string, stdoutFilename string, outputFilename
 	resources.resourceLookup[hash] = resource
 }
 
-func setCurrentResource(file string) {
-	// set the current resource given a file name
-	hash := makeHash(file)
+func createResource(file string, hash string) {
+	// create a new resource if a matching one doesn't already exist
 	resources := getResources()
-
 	_, ok := resources.resourceLookup[hash]
 	if !ok {
 		// create a temp directory the first time someone needs it
@@ -173,9 +171,55 @@ func setCurrentResource(file string) {
 		// perform file conversion concurrently to complete the resource
 		go convertFile(file, hash, stdoutFilePtr.Name(), prevewFilePtr.Name())
 	}
+}
 
-	// save the current resource
+func precacheNearbyFiles(file string) {
+	// TODO: need to sort the files to match their display order in lf and others
+
+	precache := config.GetConfig().Settings.Precache
+	if precache == 0 {
+		return
+	}
+
+	// precache the files around the "current" one
+	files, err := ioutil.ReadDir(filepath.Dir(file))
+	if err != nil {
+		panic(err)
+	}
+	sorted := []string{}
+	for _, file := range files {
+		if !file.IsDir() {
+			sorted = append(sorted, file.Name())
+		}
+	}
+
+	// find current item
+	index := util.Find(sorted, filepath.Base(file))
+
+	// precache files after
+	for i, count := index+1, 0; i < len(sorted) && count < precache; i, count = i+1, count+1 {
+		after := filepath.Dir(file) + "/" + sorted[i]
+		createResource(after, makeHash(after))
+	}
+
+	// precache files before
+	for i, count := index-1, 0; i >= 0 && count < precache; i, count = i-1, count+1 {
+		before := filepath.Dir(file) + "/" + sorted[i]
+		createResource(before, makeHash(before))
+	}
+}
+
+func setCurrentResource(file string) {
+	// create or find a resource given a file name
+	hash := makeHash(file)
+	createResource(file, hash)
+
+	// mark the resource as "current"
+	resources := getResources()
 	resources.currentHash = hash
+
+	// precache nearby files
+	precacheNearbyFiles(file)
 }
 
 func getCurrentResourceData() map[string]string {

@@ -39,3 +39,13 @@ func RespondJson(w *http.ResponseWriter, jsonMap map[string]string) {
 		fmt.Fprintln(os.Stdout, string(body))
 	}
 }
+
+func Find(a []string, x string) int {
+	// https://yourbasic.org/golang/find-search-contains-slice/
+	for i, n := range a {
+		if x == n {
+			return i
+		}
+	}
+	return len(a)
+}

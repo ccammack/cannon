@@ -24,6 +24,7 @@ type Config struct {
 		Port     int      `mapstructure:"port"`
 		Browser  []string `mapstructure:"browser"`
 		Interval int      `mapstructure:"interval"`
+		Precache int      `mapstructure:"precache"`
 		Exit     int      `mapstructure:"exit"`
 	} `mapstructure:"settings"`
 	FileConversionRules []struct {
