@@ -271,6 +271,15 @@ const PageTemplate = `
 							}
 						}
 						setTimeout(status, {{.interval}});
+					})
+					.catch(err => {
+						// Failed to load resource: net::ERR_CONNECTION_REFUSED
+						document.title = "Cannon preview";
+						const container = document.getElementById("container");
+						if (container) {
+							const inner = "<p>Disconnected from server: " + statusurl + "</p>";
+							container.innerHTML = inner;
+						}
 					});
 				}, {{.interval}});
 			}
