@@ -54,7 +54,7 @@ func startBrowser() {
 		args = append(args, arg)
 	}
 	cmd := exec.Command(command, args...)
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
 		panic(err)
 	}
 }

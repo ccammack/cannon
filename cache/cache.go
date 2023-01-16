@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -49,6 +50,7 @@ type Resource struct {
 	ready          bool
 	filenameIn     string
 	filenameInHash string
+	filenameStdout string
 	filenameOut    string
 	html           string
 	htmlHash       string
@@ -57,17 +59,17 @@ type Resource struct {
 type Resources struct {
 	currentHash    string
 	resourceLookup map[string]Resource
+	tempDir        string
 }
 
 var (
 	resources     *Resources
 	resoursesLock = new(sync.RWMutex)
-	tempDir       string
 )
 
 func Exit() {
-	if len(tempDir) > 0 {
-		os.RemoveAll(tempDir)
+	if len(resources.tempDir) > 0 {
+		os.RemoveAll(resources.tempDir)
 	}
 }
 
@@ -83,19 +85,7 @@ func init() {
 	resources = new(Resources)
 	resources.resourceLookup = make(map[string]Resource)
 
-	// add a default resource
-	// hash := "0"
-	// html := "<p>Waiting for file...</p>"
-	// resource := Resource{
-	// 	"Cannon preview",
-	// 	hash,
-	// 	"",
-	// 	html,
-	// 	makeHash(html),
-	// }
-	// resources.resourceLookup[hash] = resource
-	// resources.currentHash = hash
-
+	// reset the resource map on config file changes
 	config.RegisterCallback(func(event string) {
 		if event == "reload" {
 			resources := getResources()
@@ -110,85 +100,95 @@ func getResources() *Resources {
 	return resources
 }
 
-func convertFile(file string, hash string) {
-	// TODO: move file conversion into a coroutine
+func convertFile(file string, hash string, stdoutFilename string, outputFilename string) {
+	//
 	// TODO: iterate config rules and run the matching one
-
-	// create a temp directory the first time someone asks for a file
-	if len(tempDir) == 0 {
-		dir, err := ioutil.TempDir("", "cannon")
-		if err != nil {
-			panic(err)
-		}
-		tempDir = dir
-	}
-
-	// create a temp output file
-	filePtr, err := ioutil.TempFile(tempDir, "preview")
-	if err != nil {
-		panic(err)
-	}
-	defer filePtr.Close()
+	//
 
 	// simulate file conversion
-	source, err := os.Open(file)
-	if err != nil {
+	cmd := exec.Command("cp", file, outputFilename)
+	if err := cmd.Run(); err != nil {
 		panic(err)
 	}
-	defer source.Close()
-	destination, err := os.Create(filePtr.Name())
-	if err != nil {
-		panic(err)
-	}
-	defer destination.Close()
 
 	// simulate conversion delay
 	time.Sleep(10 * time.Second)
 
-	html := "<img src='{document.location.href}file?hash=" + hash + "'>"
-
-	resource := Resource{
-		true, // set ready=true when when finished
-		file,
-		hash,
-		filePtr.Name(),
-		html,
-		makeHash(html),
-	}
+	// update the resource when finished
 	resources := getResources()
+	resource, ok := resources.resourceLookup[hash]
+	if !ok {
+		panic("Resource lookup failed in cache.go!")
+	}
+
+	// save the finished resource so it can be served
+	html := "<img src='{document.location.href}file?hash=" + hash + "'>"
+	resource.ready = true
+	resource.html = html
+	resource.htmlHash = makeHash(html)
 	resources.resourceLookup[hash] = resource
 }
 
 func setCurrentResource(file string) {
+	// set the current resource given a file name
 	hash := makeHash(file)
 	resources := getResources()
+
 	_, ok := resources.resourceLookup[hash]
 	if !ok {
-		// add a new null entry
+		// create a temp directory the first time someone needs it
+		if len(resources.tempDir) == 0 {
+			dir, err := ioutil.TempDir("", "cannon")
+			if err != nil {
+				panic(err)
+			}
+			resources.tempDir = dir
+		}
+
+		// create a temp file to hold stdout for the file conversion
+		stdoutFilePtr, err := ioutil.TempFile(resources.tempDir, "stdout")
+		if err != nil {
+			panic(err)
+		}
+		defer stdoutFilePtr.Close()
+
+		// create a temp file to hold the final output file
+		prevewFilePtr, err := ioutil.TempFile(resources.tempDir, "preview")
+		if err != nil {
+			panic(err)
+		}
+		defer prevewFilePtr.Close()
+
+		// add a new entry for the resource
 		resources.resourceLookup[hash] = Resource{
 			false,
 			file,
 			hash,
-			"",
+			stdoutFilePtr.Name(),
+			prevewFilePtr.Name(),
 			"",
 			"",
 		}
 
-		// perform file conversion and then fill out the resource
-		go convertFile(file, hash)
+		// perform file conversion concurrently to complete the resource
+		go convertFile(file, hash, stdoutFilePtr.Name(), prevewFilePtr.Name())
 	}
+
+	// save the current resource
 	resources.currentHash = hash
 }
 
 func getCurrentResourceData() map[string]string {
-	// default values
+	// return the current resource for display
+
+	// set default values
 	data := map[string]string{
 		"interval": strconv.Itoa(config.GetConfig().Settings.Interval),
 	}
 
 	resources := getResources()
 	if len(resources.resourceLookup) == 0 {
-		// serve default values until the first file is selected
+		// serve default values until the first resource is added
 		html := "<p>Waiting for file...</p>"
 		maps.Copy(data, map[string]string{
 			"title":    "Cannon preview",
@@ -196,12 +196,6 @@ func getCurrentResourceData() map[string]string {
 			"html":     html,
 			"htmlhash": makeHash(html),
 		})
-		// data = map[string]string{
-		// 	"title":    "Cannon preview",
-		// 	"filehash": "0",
-		// 	"html":     html,
-		// 	"htmlhash": makeHash(html),
-		// }
 	} else {
 		resource, ok := resources.resourceLookup[resources.currentHash]
 		if !ok {
@@ -209,7 +203,7 @@ func getCurrentResourceData() map[string]string {
 		}
 
 		if !resource.ready {
-			// serve stdout+stderr until the conversion sets the output filename
+			// serve the file conversion's stdout+stderr until ready is true
 			html := "<p>Loading " + resource.filenameIn + "...</p>"
 			maps.Copy(data, map[string]string{
 				"title":    filepath.Base(resource.filenameIn),
@@ -217,12 +211,6 @@ func getCurrentResourceData() map[string]string {
 				"html":     html,
 				"htmlhash": makeHash(html),
 			})
-			// data = map[string]string{
-			// 	"title":    filepath.Base(resource.filenameIn),
-			// 	"filehash": resource.filenameInHash,
-			// 	"html":     html,
-			// 	"htmlhash": makeHash(html),
-			// }
 		} else {
 			// serve the converted output file
 			maps.Copy(data, map[string]string{
@@ -231,12 +219,6 @@ func getCurrentResourceData() map[string]string {
 				"html":     resource.html,
 				"htmlhash": resource.htmlHash,
 			})
-			// data = map[string]string{
-			// 	"title":    filepath.Base(resource.filenameIn),
-			// 	"filehash": resource.filenameInHash,
-			// 	"html":     resource.html,
-			// 	"htmlhash": resource.htmlHash,
-			// }
 		}
 	}
 
@@ -295,25 +277,13 @@ func Page(w *http.ResponseWriter) {
 	// emit html for the current page
 	data := getCurrentResourceData()
 
-	// resources := getResources()
-	// resource, ok := resources.resourceLookup[resources.currentHash]
-	// if !ok {
-	// 	panic("Resource lookup failed in cache.go!")
-	// }
-	// data := map[string]string{
-	// 	"title":       filepath.Base(resource.filenameIn),
-	// 	"filehash":    resource.filenameInHash,
-	// 	"html":        resource.html,
-	// 	"htmlhash":    resource.htmlHash,
-	// 	"interval":  "100",
-	// }
-
-	// write the current page to either w or stdout
-	t := template.New("page")
-	t, err := t.Parse(PageTemplate)
+	// generate page from template
+	t, err := template.New("page").Parse(PageTemplate)
 	if err != nil {
 		panic(err)
 	}
+
+	// respond with current page html
 	if w != nil {
 		t.Execute(*w, data)
 	} else {
@@ -324,40 +294,17 @@ func Page(w *http.ResponseWriter) {
 func Update(w *http.ResponseWriter, r *http.Request) {
 	// update the current file to display
 
-	// works
-	// extract params from the request body
-	// type Params struct {
-	// 	File string `json:"file"`
-	// }
-	// var params Params
-	// err := json.NewDecoder(r.Body).Decode(&params)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
 	// extract params from the request body
 	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
 	if err != nil {
 		panic(err)
 	}
-	// fmt.Print(params)
-	// util.Append(fmt.Sprint(params))
-	// util.Append(params["file"])
 
 	// set the current file to display
-	//setCurrentResource(params.file)
 	setCurrentResource(params["file"])
 
-	// works
-	// type UpdateMessage struct {
-	// 	State string `json:"state"`
-	// }
-	// body := UpdateMessage{
-	// 	State: "updated",
-	// }
-
-	// write {state:updated} to either w or stdout
+	// respond with { state: updated }
 	body := map[string]string{
 		"state": "updated",
 	}
@@ -383,79 +330,8 @@ func File(w *http.ResponseWriter, r *http.Request) {
 }
 
 func Status(w *http.ResponseWriter) {
+	// respond with current state info
 	body := getCurrentResourceData()
-
-	// body := map[string]string{}
-
-	// resources := getResources()
-	// if len(resources.resourceLookup) == 0 {
-	// 	// serve default values until the first file is selected
-	// 	html := "<p>Now We Are Because Waiting for file...</p>"
-	// 	body = map[string]string{
-	// 		"title":    "Cannon preview",
-	// 		"filehash": "0",
-	// 		"html":     html,
-	// 		"htmlhash": makeHash(html),
-	// 	}
-	// } else {
-	// 	resource, ok := resources.resourceLookup[resources.currentHash]
-	// 	if !ok {
-	// 		panic("Resource lookup failed in cache.go!")
-	// 	}
-
-	// 	if len(resource.filenameOut) == 0 {
-	// 		// serve stdout+stderr until the conversion sets the output filename
-	// 		html := "<p>Loading " + resource.filenameIn + "...</p>"
-	// 		body = map[string]string{
-	// 			"title":    filepath.Base(resource.filenameIn),
-	// 			"filehash": resource.filenameInHash,
-	// 			"html":     html,
-	// 			"htmlhash": makeHash(html),
-	// 		}
-	// 	} else {
-	// 		// serve the converted output file
-	// 		body = map[string]string{
-	// 			"title":    filepath.Base(resource.filenameIn),
-	// 			"filehash": resource.filenameInHash,
-	// 			"html":     resource.html,
-	// 			"htmlhash": resource.htmlHash,
-	// 		}
-	// 	}
-	// }
-
-	// works
-	// body := map[string]string{
-	// 	"file": "file goes here",
-	// }
-	// util.RespondJson(w, body)
-
-	// works
-	// type StatusMessage struct {
-	// 	Title    string `json:"title"`
-	// 	Filehash string `json:"filehash"`
-	// 	Html     string `json:"html"`
-	// 	Htmlhash string `json:"htmlhash"`
-	// }
-	// body := StatusMessage{
-	// 	Title:    filepath.Base(resource.filenameIn),
-	// 	Filehash: resource.filenameInHash,
-	// 	Html:     resource.html,
-	// 	Htmlhash: resource.htmlHash,
-	// }
-
-	// works
-	// var body map[string]interface{}
-	// err := json.Unmarshal([]byte(`{"file": "the current file will also go here"}`), &body)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// works
-	// var body json.RawMessage
-	// err := body.UnmarshalJSON([]byte(`{"file": "the current file will go here"}`))
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	if w != nil {
 		(*w).Header().Set("Content-Type", "application/json")
