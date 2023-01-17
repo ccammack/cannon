@@ -8,6 +8,7 @@ package config
 import (
 	"sync"
 
+	"github.com/adrg/xdg"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
@@ -60,11 +61,16 @@ func loadConfig() error {
 }
 
 func init() {
+	// https: //github.com/gokcehan/lf
+	// https: //pkg.go.dev/github.com/gokcehan/lf#hdr-Configuration
+	// https: //github.com/gokcehan/lf/blob/master/etc/lfrc.example
+	// https: //github.com/doronbehar/pistol
+
 	// load config file
 	viper.SetConfigType("yaml")
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/home/ccammack/work/cannon")
+	viper.SetConfigName("cannon")
+	viper.AddConfigPath(xdg.ConfigHome + "/cannon")
+	viper.AddConfigPath("/home/ccammack/work/cannon") // TODO: development only
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		// reload and notify subscribers
 		loadConfig()

@@ -2,6 +2,10 @@
 # version: 1.0 # do not change format
 # should i use a separate yaml file for each version update (config.v1.yml)
 
+#
+# ~/.config/cannon/cannon.yml (xdg.ConfigHome + "/cannon")
+#
+
 settings:
   # server address and port (select an unused port above 1023)
   server: http://localhost

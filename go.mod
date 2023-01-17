@@ -5,6 +5,7 @@ go 1.18
 require golang.org/x/exp v0.0.0-20230113213754-f9f960f08ad4
 
 require (
+	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
