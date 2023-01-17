@@ -7,7 +7,9 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"os"
 )
 
@@ -48,4 +50,14 @@ func Find(a []string, x string) int {
 		}
 	}
 	return len(a)
+}
+
+func DumpRequest(r *http.Request) {
+	// TODO: save this info in reference.org
+	res, error := httputil.DumpRequest(r, true)
+	if error != nil {
+		log.Fatal(error)
+	}
+	fmt.Print(string(res))
+	// Append(string(res))
 }

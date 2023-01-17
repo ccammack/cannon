@@ -10,14 +10,11 @@ package server
 import (
 	"cannon/cache"
 	"cannon/config"
-	"cannon/util"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"os/exec"
 	"strings"
@@ -102,22 +99,20 @@ func Toggle() {
 
 func Page() {
 	// display the current page HTML for testing
-	cache.Page(nil)
+	if _, running := serverIsRunnning(); running {
+		cache.Page(nil)
+	} else {
+		fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
+	}
 }
 
 func Status() {
 	// display the server status for testing
-	cache.Status(nil)
-}
-
-func dumpRequest(r *http.Request) {
-	// TODO: save this info in reference.org
-	res, error := httputil.DumpRequest(r, true)
-	if error != nil {
-		log.Fatal(error)
+	if _, running := serverIsRunnning(); running {
+		cache.Status(nil)
+	} else {
+		fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
 	}
-	fmt.Print(string(res))
-	util.Append(string(res))
 }
 
 func pageHandler(w http.ResponseWriter, r *http.Request) {
@@ -142,18 +137,10 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /stop
-	// body := map[string]string{
-	// 	"state": "stopped",
-	// }
-	// util.RespondJson(&w, body)
-
-	type StopMessage struct {
-		State string `json:"state"`
+	body := map[string]string{
+		"state": "stopped",
 	}
 
-	body := StopMessage{
-		State: "stopped",
-	}
 	if w != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
