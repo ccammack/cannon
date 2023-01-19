@@ -15,13 +15,16 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"golang.org/x/exp/maps"
@@ -48,24 +51,75 @@ import (
 
 type Resource struct {
 	ready          bool
-	filenameIn     string
-	filenameInHash string
-	filenameStdout string
-	filenameOut    string
+	inputName      string
+	inputNameHash  string
+	combinedOutput string
+	outputName     string
 	html           string
 	htmlHash       string
 }
 
-type Resources struct {
-	currentHash    string
-	resourceLookup map[string]Resource
-	tempDir        string
+var resources = struct {
+	lock    sync.RWMutex
+	current string
+	lookup  map[string]Resource
+	tempDir string
+}{lookup: make(map[string]Resource)}
+
+func reloadCallback(event string) {
+	if event == "reload" {
+		resources.lock.RLock()
+		defer resources.lock.RUnlock()
+		resources.lookup = make(map[string]Resource)
+	}
 }
 
-var (
-	resources     *Resources
-	resoursesLock = new(sync.RWMutex)
-)
+func getResourceCount() int {
+	resources.lock.RLock()
+	defer resources.lock.RUnlock()
+	return len(resources.lookup)
+}
+
+func getResource(hash string) (Resource, bool) {
+	resources.lock.RLock()
+	defer resources.lock.RUnlock()
+	resource, ok := resources.lookup[hash]
+	return resource, ok
+}
+
+func setResource(hash string, resource Resource) {
+	resources.lock.RLock()
+	resources.lookup[hash] = resource
+	resources.lock.RUnlock()
+}
+
+func setCurrentResource(hash string) {
+	resources.lock.RLock()
+	resources.current = hash
+	resources.lock.RUnlock()
+}
+
+func getCurrentResource() Resource {
+	resources.lock.RLock()
+	resource, ok := resources.lookup[resources.current]
+	if !ok {
+		panic("Resource lookup failed in cache.go!")
+	}
+	resources.lock.RUnlock()
+	return resource
+}
+
+func getTempDir() string {
+	resources.lock.RLock()
+	defer resources.lock.RUnlock()
+	return resources.tempDir
+}
+
+func setTempDir(dir string) {
+	resources.lock.RLock()
+	defer resources.lock.RUnlock()
+	resources.tempDir = dir
+}
 
 func Exit() {
 	if len(resources.tempDir) > 0 {
@@ -82,91 +136,151 @@ func makeHash(s string) string {
 }
 
 func init() {
-	resources = new(Resources)
-	resources.resourceLookup = make(map[string]Resource)
-
 	// reset the resource map on config file changes
-	config.RegisterCallback(func(event string) {
-		if event == "reload" {
-			resources := getResources()
-			resources.resourceLookup = make(map[string]Resource)
+	config.RegisterCallback(reloadCallback)
+}
+
+func matchConfigRules(file string) ([]string, string) {
+	extension := strings.TrimLeft(path.Ext(file), ".")
+	// mime := // TODO: mime type goes here
+
+	config := config.GetConfig()
+	rules := config.FileConversionRules
+	for _, rule := range rules {
+		if rule.Type == "extension" {
+			if util.Find(rule.Matches, extension) < len(rule.Matches) {
+				return rule.Command, rule.Tag
+			}
 		}
-	})
-}
-
-func getResources() *Resources {
-	resoursesLock.RLock()
-	defer resoursesLock.RUnlock()
-	return resources
-}
-
-func convertFile(file string, hash string, stdoutFilename string, outputFilename string) {
-	//
-	// TODO: iterate config rules and run the matching one
-	//
-
-	// simulate file conversion
-	cmd := exec.Command("cp", file, outputFilename)
-	if err := cmd.Run(); err != nil {
-		panic(err)
 	}
 
-	// simulate conversion delay
-	// time.Sleep(10 * time.Second)
+	// no match found
+	return []string{}, ""
+}
 
-	// update the resource when finished
-	resources := getResources()
-	resource, ok := resources.resourceLookup[hash]
+func copy(input string, output string) {
+	// run default copy command
+	data, err := ioutil.ReadFile(input)
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile(output, data, 0644)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func convertFile(input string, hash string, stdout string, output string) {
+
+	// if strings.TrimLeft(path.Ext(input), ".") == "pdf" {
+	// 	fmt.Println("gotcha")
+	// }
+
+	// copy the current resource
+	resource, ok := getResource(hash)
 	if !ok {
 		panic("Resource lookup failed in cache.go!")
 	}
 
-	// save the finished resource so it can be served
-	html := "<img src='{document.location.href}file?hash=" + hash + "'>"
-	resource.ready = true
-	resource.html = html
-	resource.htmlHash = makeHash(html)
-	resources.resourceLookup[hash] = resource
+	// find matching configuration rule
+	commandArr, tag := matchConfigRules(input)
+
+	// run the matching command and wait for it to complete
+	if len(commandArr) > 0 {
+		resource.combinedOutput += fmt.Sprintf("Config: %v\n\n", commandArr)
+
+		// run the requested command
+		command := commandArr[0]
+		rest := commandArr[1:]
+		args := []string{}
+		for _, arg := range rest {
+			arg := strings.Replace(arg, "{input}", input, 1)
+			arg = strings.Replace(arg, "{output}", output, 1)
+			args = append(args, arg)
+		}
+
+		resource.combinedOutput += fmt.Sprintf("   Run: %s %s\n\n", command, strings.Trim(fmt.Sprintf("%v", args), "[]"))
+		out, err := exec.Command(command, args...).CombinedOutput()
+		resource.combinedOutput += string(out)
+		if err != nil {
+			resource.html = "<pre>" + resource.combinedOutput + "</pre>"
+			resource.htmlHash = makeHash(resource.html)
+			resource.ready = true
+		} else {
+			// if the rules create an output file with extension, copy it over the one without
+			matches, err := filepath.Glob(output + "*")
+			if err != nil {
+				panic(err)
+			}
+			source := ""
+			size := int64(0)
+			for _, match := range matches {
+				fi, err := os.Stat(match)
+				if err != nil {
+					panic(err)
+				}
+				if fi.Size() > size {
+					source = match
+					size = fi.Size()
+				}
+			}
+			if source != output {
+				copy(source, output)
+			}
+
+			resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
+			resource.htmlHash = makeHash(resource.html)
+			resource.ready = true
+		}
+	} else {
+		copy(input, output)
+
+		resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
+		resource.htmlHash = makeHash(resource.html)
+		resource.ready = true
+	}
+
+	// update the resource
+	setResource(hash, resource)
 }
 
 func createResource(file string, hash string) {
 	// create a new resource if a matching one doesn't already exist
-	resources := getResources()
-	_, ok := resources.resourceLookup[hash]
+	_, ok := getResource(hash)
 	if !ok {
 		// create a temp directory the first time someone needs it
-		if len(resources.tempDir) == 0 {
+		if len(getTempDir()) == 0 {
 			dir, err := ioutil.TempDir("", "cannon")
 			if err != nil {
 				panic(err)
 			}
-			resources.tempDir = dir
+			setTempDir(dir)
 		}
 
 		// create a temp file to hold stdout for the file conversion
-		stdoutFilePtr, err := ioutil.TempFile(resources.tempDir, "stdout")
+		stdoutFilePtr, err := ioutil.TempFile(getTempDir(), "stdout")
 		if err != nil {
 			panic(err)
 		}
 		defer stdoutFilePtr.Close()
 
 		// create a temp file to hold the final output file
-		prevewFilePtr, err := ioutil.TempFile(resources.tempDir, "preview")
+		prevewFilePtr, err := ioutil.TempFile(getTempDir(), "preview")
 		if err != nil {
 			panic(err)
 		}
 		defer prevewFilePtr.Close()
 
 		// add a new entry for the resource
-		resources.resourceLookup[hash] = Resource{
+		setResource(hash, Resource{
 			false,
 			file,
 			hash,
-			stdoutFilePtr.Name(),
+			"",
 			prevewFilePtr.Name(),
 			"",
 			"",
-		}
+		})
 
 		// perform file conversion concurrently to complete the resource
 		go convertFile(file, hash, stdoutFilePtr.Name(), prevewFilePtr.Name())
@@ -209,19 +323,6 @@ func precacheNearbyFiles(file string) {
 	}
 }
 
-func setCurrentResource(file string) {
-	// create or find a resource given a file name
-	hash := makeHash(file)
-	createResource(file, hash)
-
-	// mark the resource as "current"
-	resources := getResources()
-	resources.currentHash = hash
-
-	// precache nearby files
-	precacheNearbyFiles(file)
-}
-
 func getCurrentResourceData() map[string]string {
 	// return the current resource for display
 
@@ -230,8 +331,7 @@ func getCurrentResourceData() map[string]string {
 		"interval": strconv.Itoa(config.GetConfig().Settings.Interval),
 	}
 
-	resources := getResources()
-	if len(resources.resourceLookup) == 0 {
+	if getResourceCount() == 0 {
 		// serve default values until the first resource is added
 		html := "<p>Waiting for file...</p>"
 		maps.Copy(data, map[string]string{
@@ -241,25 +341,22 @@ func getCurrentResourceData() map[string]string {
 			"htmlhash": makeHash(html),
 		})
 	} else {
-		resource, ok := resources.resourceLookup[resources.currentHash]
-		if !ok {
-			panic("Resource lookup failed in cache.go!")
-		}
+		resource := getCurrentResource()
 
 		if !resource.ready {
 			// serve the file conversion's stdout+stderr until ready is true
-			html := "<p>Loading " + resource.filenameIn + "...</p>"
+			html := "<p>Loading " + resource.inputName + "...</p>"
 			maps.Copy(data, map[string]string{
-				"title":    filepath.Base(resource.filenameIn),
-				"filehash": resource.filenameInHash,
+				"title":    filepath.Base(resource.inputName),
+				"filehash": resource.inputNameHash,
 				"html":     html,
 				"htmlhash": makeHash(html),
 			})
 		} else {
 			// serve the converted output file
 			maps.Copy(data, map[string]string{
-				"title":    filepath.Base(resource.filenameIn),
-				"filehash": resource.filenameInHash,
+				"title":    filepath.Base(resource.inputName),
+				"filehash": resource.inputNameHash,
 				"html":     resource.html,
 				"htmlhash": resource.htmlHash,
 			})
@@ -346,7 +443,13 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	}
 
 	// set the current file to display
-	setCurrentResource(params["file"])
+	file := params["file"]
+	hash := makeHash(file)
+	createResource(file, hash)
+	setCurrentResource(hash)
+
+	// precache nearby files
+	precacheNearbyFiles(params["file"])
 
 	// respond with { state: updated }
 	body := map[string]string{
@@ -365,12 +468,11 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 func File(w *http.ResponseWriter, r *http.Request) {
 	// serve the requested file by hash
 	hash := r.URL.Query().Get("hash")
-	resources := getResources()
-	resource, ok := resources.resourceLookup[hash]
+	resource, ok := getResource(hash)
 	if !ok {
 		panic("Resource lookup failed in cache.go!")
 	}
-	http.ServeFile(*w, r, resource.filenameOut)
+	http.ServeFile(*w, r, resource.outputName)
 }
 
 func Status(w *http.ResponseWriter) {

@@ -14,7 +14,7 @@ settings:
   # command and args to start the preview browser
   # set arg to enable auto-play for sound previews
   # requires the {url} placeholder arg in the correct position
-  browser: [ "brave-browser", "{url}" ]
+  browser: [ 'brave-browser', '{url}' ]
 
   # browser polling time in milliseconds
   interval: 100
@@ -26,33 +26,44 @@ settings:
   # precache this many files before and after the current file
   precache: 4
 
-
-
   # auto_start:  true # cannon <file> will start the server automatically
-  # cache_count: 16   # precache this many files in the background
   # proc_count:  4    # do this many conversions concurrently
 
 file_conversion_rules:
+  #
+  # command: must contain {input} and {output} params
+  #          the output param may also specify an extension: {output}.jpg
+  #     tag: must contain {src} param
+  #
   -
-    # native html5 image formats do not need any conversion
+    # native html5 image formats do not need any conversion and do not have a command field
     type: extension
     matches: [apng,avif,gif,jpg,jpeg,jfif,pjpeg,pjp,png,svg,webp]
-    tag: <img id="{{.id}}" src="{{.src}}">
+    tag: <img src='{src}'>
   -
     # convert other image formats to jpg using imagemagick
-    # $ convert identify -list format | less
+    # TODO: add the rest of the extenstions here: $ convert identify -list format | less
     type: extension
     matches: [bmp,ico,cur,tif,tiff]
-    command: convert ${INPUT} ${OUTPUT}.jpg
-    tag: img
+    command: ['convert', '{input}', '{output}.jpg']
+    tag: <img src='{src}'>
   -
+    #
     # convert pdf 1st page to jpg using imagemagick
+    # imagemagick might require a policy change to allow this operation
+    # edit the imagemagick policy file and grant "read | write" to the "PDF" pattern
+    #   $ sudo nano /etc/ImageMagick-6/policy.xml
+    # change the line that says
+    #   <policy domain="coder" rights="none" pattern="PDF" />
+    # to
+    #   <policy domain="coder" rights="read | write" pattern="PDF" />
+    #
     type: extension
     matches: [pdf]
-    command: convert -density 150 ${INPUT}[0] -quality 90 ${OUTPUT}.jpg
-    tag: img
-  -
-    type: mime
-    matches: [application/text]
-    command: more t.txt
-    tag: head
+    command: ['convert', '-density', '150', '{input}[0]', '-quality', '90', '{output}.jpg']
+    tag: <img src='{src}'>
+  # -
+  #   type: mime
+  #   matches: [application/text]
+  #   command: more t.txt
+  #   tag: head

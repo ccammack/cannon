@@ -32,7 +32,7 @@ type Config struct {
 		Type    string   `mapstructure:"type"`
 		Matches []string `mapstructure:"matches"`
 		Tag     string   `mapstructure:"tag"`
-		Command string   `mapstructure:"command,omitempty"`
+		Command []string `mapstructure:"command,omitempty"`
 	} `mapstructure:"file_conversion_rules"`
 }
 
