@@ -70,10 +70,13 @@ func init() {
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("cannon")
 	viper.AddConfigPath(xdg.ConfigHome + "/cannon")
-	viper.AddConfigPath("/home/ccammack/work/cannon") // TODO: development only
+	viper.AddConfigPath("/home/ccammack/work/cannon")                // TODO: development only
+	viper.AddConfigPath("C:/Users/clc/work/ccammack.private/cannon") // TODO: development only
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		// reload and notify subscribers
-		loadConfig()
+		if err := loadConfig(); err != nil {
+			panic(err)
+		}
 		for _, callback := range callbacks {
 			callback("reload")
 		}

@@ -14,7 +14,8 @@ settings:
   # command and args to start the preview browser
   # set arg to enable auto-play for sound previews
   # requires the {url} placeholder arg in the correct position
-  browser: [ 'brave-browser', '{url}' ]
+  #browser: [ 'brave-browser', '{url}' ]
+  browser: [ 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}' ]
 
   # browser polling time in milliseconds
   interval: 100

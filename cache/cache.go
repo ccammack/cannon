@@ -49,6 +49,54 @@ import (
 // https://gobyexample.com/json
 // https://yourbasic.org/golang/json-example/
 
+const PageTemplate = `
+<!doctype html>
+<html>
+	<head>
+		<title>{{.title}}</title>
+		<script>
+			let filehash = "0";
+			let htmlhash = "0";
+			window.onload = function(e) {
+				// copy server address from document.location.href
+				const statusurl = document.location.href + "status";
+				setTimeout(function status() {
+					// ask the server for updates and reload if needed
+					fetch(statusurl)
+					.then((response) => response.json())
+					.then((data) => {
+						if ((filehash != data.filehash) || (htmlhash != data.htmlhash)) {
+							filehash = data.filehash;
+							htmlhash = data.htmlhash;
+							document.title = data.title;
+							const container = document.getElementById("container");
+							if (container) {
+								// copy server address from document.location.href
+								const inner = data.html.replace("{document.location.href}", document.location.href);
+								container.innerHTML = inner;
+							}
+						}
+						setTimeout(status, {{.interval}});
+					})
+					.catch(err => {
+						// Failed to load resource: net::ERR_CONNECTION_REFUSED
+						document.title = "Cannon preview";
+						const container = document.getElementById("container");
+						if (container) {
+							const inner = "<p>Disconnected from server: " + statusurl + "</p>";
+							container.innerHTML = inner;
+						}
+					});
+				}, {{.interval}});
+			}
+		</script>
+	</head>
+	<body>
+		<div id="container"></div>
+	</body>
+</html>
+`
+
 type Resource struct {
 	ready          bool
 	inputName      string
@@ -68,57 +116,57 @@ var resources = struct {
 
 func reloadCallback(event string) {
 	if event == "reload" {
-		resources.lock.RLock()
-		defer resources.lock.RUnlock()
+		resources.lock.Lock()
 		resources.lookup = make(map[string]Resource)
+		resources.lock.Unlock()
 	}
 }
 
 func getResourceCount() int {
-	resources.lock.RLock()
-	defer resources.lock.RUnlock()
+	resources.lock.Lock()
+	defer resources.lock.Unlock()
 	return len(resources.lookup)
 }
 
 func getResource(hash string) (Resource, bool) {
-	resources.lock.RLock()
-	defer resources.lock.RUnlock()
+	resources.lock.Lock()
 	resource, ok := resources.lookup[hash]
+	resources.lock.Unlock()
 	return resource, ok
 }
 
 func setResource(hash string, resource Resource) {
-	resources.lock.RLock()
+	resources.lock.Lock()
 	resources.lookup[hash] = resource
-	resources.lock.RUnlock()
+	resources.lock.Unlock()
 }
 
 func setCurrentResource(hash string) {
-	resources.lock.RLock()
+	resources.lock.Lock()
 	resources.current = hash
-	resources.lock.RUnlock()
+	resources.lock.Unlock()
 }
 
 func getCurrentResource() Resource {
-	resources.lock.RLock()
+	resources.lock.Lock()
 	resource, ok := resources.lookup[resources.current]
 	if !ok {
 		panic("Resource lookup failed in cache.go!")
 	}
-	resources.lock.RUnlock()
+	resources.lock.Unlock()
 	return resource
 }
 
 func getTempDir() string {
-	resources.lock.RLock()
-	defer resources.lock.RUnlock()
+	resources.lock.Lock()
+	defer resources.lock.Unlock()
 	return resources.tempDir
 }
 
 func setTempDir(dir string) {
-	resources.lock.RLock()
-	defer resources.lock.RUnlock()
+	resources.lock.Lock()
 	resources.tempDir = dir
+	resources.lock.Unlock()
 }
 
 func Exit() {
@@ -170,12 +218,7 @@ func copy(input string, output string) {
 	}
 }
 
-func convertFile(input string, hash string, stdout string, output string) {
-
-	// if strings.TrimLeft(path.Ext(input), ".") == "pdf" {
-	// 	fmt.Println("gotcha")
-	// }
-
+func convertFile(input string, hash string, output string) {
 	// copy the current resource
 	resource, ok := getResource(hash)
 	if !ok {
@@ -257,13 +300,6 @@ func createResource(file string, hash string) {
 			setTempDir(dir)
 		}
 
-		// create a temp file to hold stdout for the file conversion
-		stdoutFilePtr, err := ioutil.TempFile(getTempDir(), "stdout")
-		if err != nil {
-			panic(err)
-		}
-		defer stdoutFilePtr.Close()
-
 		// create a temp file to hold the final output file
 		prevewFilePtr, err := ioutil.TempFile(getTempDir(), "preview")
 		if err != nil {
@@ -283,7 +319,7 @@ func createResource(file string, hash string) {
 		})
 
 		// perform file conversion concurrently to complete the resource
-		go convertFile(file, hash, stdoutFilePtr.Name(), prevewFilePtr.Name())
+		go convertFile(file, hash, prevewFilePtr.Name())
 	}
 }
 
@@ -366,54 +402,6 @@ func getCurrentResourceData() map[string]string {
 	return data
 }
 
-const PageTemplate = `
-<!doctype html>
-<html>
-	<head>
-		<title>{{.title}}</title>
-		<script>
-			let filehash = "0";
-			let htmlhash = "0";
-			window.onload = function(e) {
-				// copy server address from document.location.href
-				const statusurl = document.location.href + "status";
-				setTimeout(function status() {
-					// ask the server for updates and reload if needed
-					fetch(statusurl)
-					.then((response) => response.json())
-					.then((data) => {
-						if ((filehash != data.filehash) || (htmlhash != data.htmlhash)) {
-							filehash = data.filehash;
-							htmlhash = data.htmlhash;
-							document.title = data.title;
-							const container = document.getElementById("container");
-							if (container) {
-								// copy server address from document.location.href
-								const inner = data.html.replace("{document.location.href}", document.location.href);
-								container.innerHTML = inner;
-							}
-						}
-						setTimeout(status, {{.interval}});
-					})
-					.catch(err => {
-						// Failed to load resource: net::ERR_CONNECTION_REFUSED
-						document.title = "Cannon preview";
-						const container = document.getElementById("container");
-						if (container) {
-							const inner = "<p>Disconnected from server: " + statusurl + "</p>";
-							container.innerHTML = inner;
-						}
-					});
-				}, {{.interval}});
-			}
-		</script>
-	</head>
-	<body>
-		<div id="container"></div>
-	</body>
-</html>
-`
-
 func Page(w *http.ResponseWriter) {
 	// emit html for the current page
 	data := getCurrentResourceData()
@@ -455,14 +443,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	body := map[string]string{
 		"state": "updated",
 	}
-
-	if w != nil {
-		(*w).Header().Set("Content-Type", "application/json")
-		(*w).WriteHeader(http.StatusOK)
-		json.NewEncoder(*w).Encode(body)
-	} else {
-		json.NewEncoder(os.Stdout).Encode(body)
-	}
+	util.RespondJson(w, body)
 }
 
 func File(w *http.ResponseWriter, r *http.Request) {
@@ -478,12 +459,5 @@ func File(w *http.ResponseWriter, r *http.Request) {
 func Status(w *http.ResponseWriter) {
 	// respond with current state info
 	body := getCurrentResourceData()
-
-	if w != nil {
-		(*w).Header().Set("Content-Type", "application/json")
-		(*w).WriteHeader(http.StatusOK)
-		json.NewEncoder(*w).Encode(body)
-	} else {
-		json.NewEncoder(os.Stdout).Encode(body)
-	}
+	util.RespondJson(w, body)
 }

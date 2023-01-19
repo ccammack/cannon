@@ -31,14 +31,12 @@ func Append(text string) {
 }
 
 func RespondJson(w *http.ResponseWriter, jsonMap map[string]string) {
-	// TODO: try using templates for this or find a one-liner
-	body, _ := json.Marshal(jsonMap)
 	if w != nil {
 		(*w).Header().Set("Content-Type", "application/json")
 		(*w).WriteHeader(http.StatusOK)
-		(*w).Write(body)
+		json.NewEncoder(*w).Encode(jsonMap)
 	} else {
-		fmt.Fprintln(os.Stdout, string(body))
+		json.NewEncoder(os.Stdout).Encode(jsonMap)
 	}
 }
 
