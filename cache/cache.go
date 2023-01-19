@@ -3,16 +3,12 @@ Copyright © 2022 Chris Cammack <chris@ccammack.com>
 
 */
 
-// TODO: golang serve file from memory
-// TODO: golang lru cache
-// https://www.alexedwards.net/blog/golang-response-snippets
-
 package cache
 
 import (
 	"cannon/config"
 	"cannon/util"
-	"crypto/sha1"
+	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -29,25 +25,6 @@ import (
 
 	"golang.org/x/exp/maps"
 )
-
-// https://vivek-syngh.medium.com/http-response-in-golang-4ca1b3688d6
-// https://programmer.help/blogs/golang-json-encoding-decoding-and-text-html-templates.html
-// https://stackoverflow.com/questions/38436854/golang-use-json-in-template-directly
-// https://gist.github.com/alex-leonhardt/8ed3f78545706d89d466434fb6870023
-// https://gist.github.com/Integralist/d47c2e8c6064ec065108ad59df6e1fb9
-// https://go.dev/blog/json
-// https://www.sohamkamani.com/golang/json/
-// https://stackoverflow.com/questions/30537035/golang-json-rawmessage-literal
-// https://go.dev/play/p/C1tXFi23Bw
-// https://appdividend.com/2022/06/22/golang-serialize-json-string/
-// https://www.socketloop.com/tutorials/golang-marshal-and-unmarshal-json-rawmessage-struct-example
-// https://noamt.medium.com/using-gos-json-rawmessage-a2371a1c11b7
-// https://stackoverflow.com/questions/23255456/whats-the-proper-way-to-convert-a-json-rawmessage-to-a-struct
-// https://jhall.io/pdf/Advanced%20JSON%20handling%20in%20Go.pdf
-// https://codewithyury.com/how-to-correctly-serialize-json-string-in-golang/
-// https://www.digitalocean.com/community/tutorials/how-to-use-json-in-go
-// https://gobyexample.com/json
-// https://yourbasic.org/golang/json-example/
 
 const PageTemplate = `
 <!doctype html>
@@ -117,15 +94,11 @@ var resources = struct {
 func reloadCallback(event string) {
 	if event == "reload" {
 		resources.lock.Lock()
+		resources.current = ""
 		resources.lookup = make(map[string]Resource)
+		resources.tempDir = ""
 		resources.lock.Unlock()
 	}
-}
-
-func getResourceCount() int {
-	resources.lock.Lock()
-	defer resources.lock.Unlock()
-	return len(resources.lookup)
 }
 
 func getResource(hash string) (Resource, bool) {
@@ -141,43 +114,48 @@ func setResource(hash string, resource Resource) {
 	resources.lock.Unlock()
 }
 
-func setCurrentResource(hash string) {
+func getCurrentHash() string {
+	resources.lock.Lock()
+	defer resources.lock.Unlock()
+	return resources.current
+}
+
+func setCurrentHash(hash string) {
 	resources.lock.Lock()
 	resources.current = hash
 	resources.lock.Unlock()
 }
 
-func getCurrentResource() Resource {
-	resources.lock.Lock()
-	resource, ok := resources.lookup[resources.current]
-	if !ok {
-		panic("Resource lookup failed in cache.go!")
-	}
-	resources.lock.Unlock()
-	return resource
-}
-
-func getTempDir() string {
+func createPreviewFile() string {
+	// create a temp directory on the first call
 	resources.lock.Lock()
 	defer resources.lock.Unlock()
-	return resources.tempDir
-}
+	if len(resources.tempDir) == 0 {
+		dir, err := ioutil.TempDir("", "cannon")
+		if err != nil {
+			panic(err)
+		}
+		resources.tempDir = dir
+	}
 
-func setTempDir(dir string) {
-	resources.lock.Lock()
-	resources.tempDir = dir
-	resources.lock.Unlock()
+	// create a temp file to hold the output preview file
+	fp, err := ioutil.TempFile(resources.tempDir, "preview")
+	defer fp.Close()
+	if err != nil {
+		panic(err)
+	}
+	return fp.Name()
 }
 
 func Exit() {
+	// clean up
 	if len(resources.tempDir) > 0 {
 		os.RemoveAll(resources.tempDir)
 	}
 }
 
 func makeHash(s string) string {
-	// TODO: is sha1 a good choice here?
-	hash := sha1.New()
+	hash := md5.New()
 	hash.Write([]byte(s))
 	hashstr := hex.EncodeToString(hash.Sum(nil))
 	return hashstr
@@ -200,6 +178,9 @@ func matchConfigRules(file string) ([]string, string) {
 				return rule.Command, rule.Tag
 			}
 		}
+		// TODO: add mime type
+		// TODO: add generic binary
+		// TODO: add generic text
 	}
 
 	// no match found
@@ -207,7 +188,7 @@ func matchConfigRules(file string) ([]string, string) {
 }
 
 func copy(input string, output string) {
-	// run default copy command
+	// copy input file contents to output file
 	data, err := ioutil.ReadFile(input)
 	if err != nil {
 		panic(err)
@@ -218,19 +199,42 @@ func copy(input string, output string) {
 	}
 }
 
+func getLargestFile(pattern string) string {
+	// find the file matching pattern with the largest size
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		panic(err)
+	}
+	largest := ""
+	size := int64(0)
+	for _, match := range matches {
+		fi, err := os.Stat(match)
+		if err != nil {
+			panic(err)
+		}
+		if fi.Size() > size {
+			largest = match
+			size = fi.Size()
+		}
+	}
+	return largest
+}
+
 func convertFile(input string, hash string, output string) {
-	// copy the current resource
+	// run conversion rules on the input file to produce output
 	resource, ok := getResource(hash)
 	if !ok {
 		panic("Resource lookup failed in cache.go!")
 	}
 
-	// find matching configuration rule
+	// find the first matching configuration rule
 	commandArr, tag := matchConfigRules(input)
 
 	// run the matching command and wait for it to complete
 	if len(commandArr) > 0 {
 		resource.combinedOutput += fmt.Sprintf("Config: %v\n\n", commandArr)
+
+		// TODO: write a util func that converts a command[] into command + args[] and makes string substitutions
 
 		// run the requested command
 		command := commandArr[0]
@@ -250,25 +254,10 @@ func convertFile(input string, hash string, output string) {
 			resource.htmlHash = makeHash(resource.html)
 			resource.ready = true
 		} else {
-			// if the rules create an output file with extension, copy it over the one without
-			matches, err := filepath.Glob(output + "*")
-			if err != nil {
-				panic(err)
-			}
-			source := ""
-			size := int64(0)
-			for _, match := range matches {
-				fi, err := os.Stat(match)
-				if err != nil {
-					panic(err)
-				}
-				if fi.Size() > size {
-					source = match
-					size = fi.Size()
-				}
-			}
-			if source != output {
-				copy(source, output)
+			// if the rule creates an output file with extension, copy it over the one without
+			largest := getLargestFile(output + "*")
+			if largest != output {
+				copy(largest, output)
 			}
 
 			resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
@@ -276,6 +265,7 @@ func convertFile(input string, hash string, output string) {
 			resource.ready = true
 		}
 	} else {
+		// if the rule doesn't contain a command, copy the input file into the temp folder and serve the copy
 		copy(input, output)
 
 		resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
@@ -288,24 +278,10 @@ func convertFile(input string, hash string, output string) {
 }
 
 func createResource(file string, hash string) {
-	// create a new resource if a matching one doesn't already exist
+	// create a new resource for the file if it doesn't already exist
 	_, ok := getResource(hash)
 	if !ok {
-		// create a temp directory the first time someone needs it
-		if len(getTempDir()) == 0 {
-			dir, err := ioutil.TempDir("", "cannon")
-			if err != nil {
-				panic(err)
-			}
-			setTempDir(dir)
-		}
-
-		// create a temp file to hold the final output file
-		prevewFilePtr, err := ioutil.TempFile(getTempDir(), "preview")
-		if err != nil {
-			panic(err)
-		}
-		defer prevewFilePtr.Close()
+		preview := createPreviewFile()
 
 		// add a new entry for the resource
 		setResource(hash, Resource{
@@ -313,13 +289,13 @@ func createResource(file string, hash string) {
 			file,
 			hash,
 			"",
-			prevewFilePtr.Name(),
+			preview,
 			"",
 			"",
 		})
 
 		// perform file conversion concurrently to complete the resource
-		go convertFile(file, hash, prevewFilePtr.Name())
+		go convertFile(file, hash, preview)
 	}
 }
 
@@ -367,20 +343,20 @@ func getCurrentResourceData() map[string]string {
 		"interval": strconv.Itoa(config.GetConfig().Settings.Interval),
 	}
 
-	if getResourceCount() == 0 {
+	// look up the current resource if it exists
+	resource, ok := getResource(getCurrentHash())
+	if !ok {
 		// serve default values until the first resource is added
 		html := "<p>Waiting for file...</p>"
 		maps.Copy(data, map[string]string{
 			"title":    "Cannon preview",
-			"filehash": "0",
+			"filehash": "",
 			"html":     html,
 			"htmlhash": makeHash(html),
 		})
 	} else {
-		resource := getCurrentResource()
-
 		if !resource.ready {
-			// serve the file conversion's stdout+stderr until ready is true
+			// serve the file conversion's combined stdout+stderr until ready is true
 			html := "<p>Loading " + resource.inputName + "...</p>"
 			maps.Copy(data, map[string]string{
 				"title":    filepath.Base(resource.inputName),
@@ -421,7 +397,7 @@ func Page(w *http.ResponseWriter) {
 }
 
 func Update(w *http.ResponseWriter, r *http.Request) {
-	// update the current file to display
+	// select a new file to display
 
 	// extract params from the request body
 	params := map[string]string{}
@@ -434,10 +410,10 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	file := params["file"]
 	hash := makeHash(file)
 	createResource(file, hash)
-	setCurrentResource(hash)
+	setCurrentHash(hash)
 
 	// precache nearby files
-	precacheNearbyFiles(params["file"])
+	precacheNearbyFiles(file)
 
 	// respond with { state: updated }
 	body := map[string]string{

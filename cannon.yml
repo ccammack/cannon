@@ -1,4 +1,3 @@
-
 # version: 1.0 # do not change format
 # should i use a separate yaml file for each version update (config.v1.yml)
 
@@ -15,10 +14,15 @@ settings:
   # set arg to enable auto-play for sound previews
   # requires the {url} placeholder arg in the correct position
   #browser: [ 'brave-browser', '{url}' ]
-  browser: [ 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}' ]
+  browser:
+    [
+      'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+      "--autoplay-policy=no-user-gesture-required",
+      "{url}",
+    ]
 
   # browser polling time in milliseconds
-  interval: 100
+  interval: 25
 
   # cannon will return this exit value from the command line: $ cannon <file>
   # lf requires a non-zero return value to disable caching
@@ -36,20 +40,17 @@ file_conversion_rules:
   #          the output param may also specify an extension: {output}.jpg
   #     tag: must contain {src} param
   #
-  -
-    # native html5 image formats do not need any conversion and do not have a command field
+  - # native html5 image formats do not need any conversion and do not have a command field
     type: extension
-    matches: [apng,avif,gif,jpg,jpeg,jfif,pjpeg,pjp,png,svg,webp]
+    matches: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
     tag: <img src='{src}'>
-  -
-    # convert other image formats to jpg using imagemagick
+  - # convert other image formats to jpg using imagemagick
     # TODO: add the rest of the extenstions here: $ convert identify -list format | less
     type: extension
-    matches: [bmp,ico,cur,tif,tiff]
-    command: ['convert', '{input}', '{output}.jpg']
+    matches: [bmp, ico, cur, tif, tiff]
+    command: ["convert", "{input}", "{output}.jpg"]
     tag: <img src='{src}'>
-  -
-    #
+  - #
     # convert pdf 1st page to jpg using imagemagick
     # imagemagick might require a policy change to allow this operation
     # edit the imagemagick policy file and grant "read | write" to the "PDF" pattern
@@ -61,7 +62,16 @@ file_conversion_rules:
     #
     type: extension
     matches: [pdf]
-    command: ['convert', '-density', '150', '{input}[0]', '-quality', '90', '{output}.jpg']
+    command:
+      [
+        "convert",
+        "-density",
+        "150",
+        "{input}[0]",
+        "-quality",
+        "90",
+        "{output}.jpg",
+      ]
     tag: <img src='{src}'>
   # -
   #   type: mime
