@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"reflect"
 )
 
 var (
@@ -60,7 +61,27 @@ func DumpRequest(r *http.Request) {
 	// Append(string(res))
 }
 
-func getPlatformCommand(parent struct{}) []string {
+func GetPlatformCommand(parent interface{}) []string {
+
+	r := reflect.ValueOf(parent)
+	// fmt.Fprint(r)
+	f := reflect.Indirect(r).FieldByName("Windows")
+	fmt.Println(f)
+	fmt.Println(f.String())
+
+	g := reflect.Indirect(r).FieldByName("Default")
+	fmt.Println(g)
+	fmt.Println(g.String())
+
+	h := reflect.Indirect(r).FieldByName("Android")
+	fmt.Println(h)
+	fmt.Println(h.IsValid())
+
+	obj := reflect.ValueOf(parent)
+	elem := obj.Elem()
+	w := elem.FieldByName("Windows")
+	fmt.Println(w)
+
 	// TODO: accept a yaml command parent struct or interface container and reflect the correct command value on runtime.GOOS
 	result := []string{}
 

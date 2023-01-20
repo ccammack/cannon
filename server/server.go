@@ -43,7 +43,7 @@ func startBrowser() {
 	address := config.Settings.Server
 	port := config.Settings.Port
 	url := fmt.Sprintf("%s:%d", address, port)
-	browser := config.Settings.Browser.Windows
+	browser := config.Settings.Browser.Windows // util.GetPlatformCommand(config.Settings.Browser)
 	command := browser[0]
 	rest := browser[1:]
 	args := []string{}
