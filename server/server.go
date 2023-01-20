@@ -10,6 +10,7 @@ package server
 import (
 	"cannon/cache"
 	"cannon/config"
+	"cannon/util"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -43,7 +44,7 @@ func startBrowser() {
 	address := config.Settings.Server
 	port := config.Settings.Port
 	url := fmt.Sprintf("%s:%d", address, port)
-	browser := config.Settings.Browser.Windows // util.GetPlatformCommand(config.Settings.Browser)
+	browser := util.GetPlatformCommand(config.Settings.Browser) // config.Settings.Browser.Windows
 	command := browser[0]
 	rest := browser[1:]
 	args := []string{}

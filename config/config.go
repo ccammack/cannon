@@ -19,52 +19,38 @@ var (
 	callbacks  []func(string)
 )
 
+type PlatformCommand struct {
+	Default []string `mapstructure:"default,omitempty"`
+	// Aix       []string `mapstructure:"aix,omitempty"`
+	// Android   []string `mapstructure:"android,omitempty"`
+	// Darwin    []string `mapstructure:"darwin,omitempty"`
+	// Dragonfly []string `mapstructure:"dragonfly,omitempty"`
+	// Freebsd   []string `mapstructure:"freebsd,omitempty"`
+	// Illumos   []string `mapstructure:"illumos,omitempty"`
+	// Ios       []string `mapstructure:"ios,omitempty"`
+	// Js        []string `mapstructure:"js,omitempty"`
+	// Linux     []string `mapstructure:"linux,omitempty"`
+	// Netbsd    []string `mapstructure:"netbsd,omitempty"`
+	// Openbsd   []string `mapstructure:"openbsd,omitempty"`
+	// Plan9     []string `mapstructure:"plan9,omitempty"`
+	// Solaris   []string `mapstructure:"solaris,omitempty"`
+	Windows []string `mapstructure:"windows,omitempty"`
+}
+
 type Config struct {
 	Settings struct {
-		Server  string `mapstructure:"server"`
-		Port    int    `mapstructure:"port"`
-		Browser struct {
-			Default []string `mapstructure:"default,omitempty"`
-			// Aix       []string `mapstructure:"aix,omitempty"`
-			// Android   []string `mapstructure:"android,omitempty"`
-			// Darwin    []string `mapstructure:"darwin,omitempty"`
-			// Dragonfly []string `mapstructure:"dragonfly,omitempty"`
-			// Freebsd   []string `mapstructure:"freebsd,omitempty"`
-			// Illumos   []string `mapstructure:"illumos,omitempty"`
-			// Ios       []string `mapstructure:"ios,omitempty"`
-			// Js        []string `mapstructure:"js,omitempty"`
-			// Linux     []string `mapstructure:"linux,omitempty"`
-			// Netbsd    []string `mapstructure:"netbsd,omitempty"`
-			// Openbsd   []string `mapstructure:"openbsd,omitempty"`
-			// Plan9     []string `mapstructure:"plan9,omitempty"`
-			// Solaris   []string `mapstructure:"solaris,omitempty"`
-			Windows []string `mapstructure:"windows,omitempty"`
-		} `mapstructure:"browser,omitempty"`
-		Interval int `mapstructure:"interval"`
-		Precache int `mapstructure:"precache"`
-		Exit     int `mapstructure:"exit"`
+		Server   string          `mapstructure:"server"`
+		Port     int             `mapstructure:"port"`
+		Browser  PlatformCommand `mapstructure:"browser,omitempty"`
+		Interval int             `mapstructure:"interval"`
+		Precache int             `mapstructure:"precache"`
+		Exit     int             `mapstructure:"exit"`
 	} `mapstructure:"settings"`
 	FileConversionRules []struct {
-		Type    string   `mapstructure:"type"`
-		Matches []string `mapstructure:"matches"`
-		Tag     string   `mapstructure:"tag"`
-		Command struct {
-			Default []string `mapstructure:"default,omitempty"`
-			// Aix       []string `mapstructure:"aix,omitempty"`
-			// Android   []string `mapstructure:"android,omitempty"`
-			// Darwin    []string `mapstructure:"darwin,omitempty"`
-			// Dragonfly []string `mapstructure:"dragonfly,omitempty"`
-			// Freebsd   []string `mapstructure:"freebsd,omitempty"`
-			// Illumos   []string `mapstructure:"illumos,omitempty"`
-			// Ios       []string `mapstructure:"ios,omitempty"`
-			// Js        []string `mapstructure:"js,omitempty"`
-			// Linux     []string `mapstructure:"linux,omitempty"`
-			// Netbsd    []string `mapstructure:"netbsd,omitempty"`
-			// Openbsd   []string `mapstructure:"openbsd,omitempty"`
-			// Plan9     []string `mapstructure:"plan9,omitempty"`
-			// Solaris   []string `mapstructure:"solaris,omitempty"`
-			Windows []string `mapstructure:"windows,omitempty"`
-		} `mapstructure:"command,omitempty"`
+		Type    string          `mapstructure:"type"`
+		Matches []string        `mapstructure:"matches"`
+		Tag     string          `mapstructure:"tag"`
+		Command PlatformCommand `mapstructure:"command,omitempty"`
 	} `mapstructure:"file_conversion_rules"`
 }
 

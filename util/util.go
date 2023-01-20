@@ -5,6 +5,7 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package util
 
 import (
+	"cannon/config"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +13,8 @@ import (
 	"net/http/httputil"
 	"os"
 	"reflect"
+	"runtime"
+	"strings"
 )
 
 var (
@@ -61,29 +64,47 @@ func DumpRequest(r *http.Request) {
 	// Append(string(res))
 }
 
-func GetPlatformCommand(parent interface{}) []string {
+func GetPlatformCommand(platformCommand config.PlatformCommand) []string {
+	platform := strings.Title(runtime.GOOS)
+	entry := reflect.Indirect(reflect.ValueOf(platformCommand)).FieldByName(platform)
+	if entry.IsValid() {
+		// config contains a platform-specific entry
+		fmt.Println(entry)        // [C:\Program Files (x86)\Google\Chrome\Application\chrome.exe --autoplay-policy=no-user-gesture-required {url}]
+		fmt.Println(entry.Kind()) // slice
 
-	r := reflect.ValueOf(parent)
-	// fmt.Fprint(r)
-	f := reflect.Indirect(r).FieldByName("Windows")
-	fmt.Println(f)
-	fmt.Println(f.String())
+		//
+		// TODO: parse entry and return it as []string
+		//
 
-	g := reflect.Indirect(r).FieldByName("Default")
-	fmt.Println(g)
-	fmt.Println(g.String())
+		return platformCommand.Windows
+	}
 
-	h := reflect.Indirect(r).FieldByName("Android")
-	fmt.Println(h)
-	fmt.Println(h.IsValid())
+	// return the default
+	return platformCommand.Default
 
-	obj := reflect.ValueOf(parent)
-	elem := obj.Elem()
-	w := elem.FieldByName("Windows")
-	fmt.Println(w)
+	// fmt.Println(platformCommand)
+
+	// r := reflect.ValueOf(platformCommand)
+	// // fmt.Fprint(r)
+	// f := reflect.Indirect(r).FieldByName("Windows")
+	// fmt.Println(f)
+	// fmt.Println(f.String())
+
+	// g := reflect.Indirect(r).FieldByName("Default")
+	// fmt.Println(g)
+	// fmt.Println(g.String())
+
+	// h := reflect.Indirect(r).FieldByName("Android")
+	// fmt.Println(h)
+	// fmt.Println(h.IsValid())
+
+	// obj := reflect.ValueOf(parent)
+	// elem := obj.Elem()
+	// w := elem.FieldByName("Windows")
+	// fmt.Println(w)
 
 	// TODO: accept a yaml command parent struct or interface container and reflect the correct command value on runtime.GOOS
-	result := []string{}
+	// result := []string{}
 
 	// switch runtime.GOOS {
 	// case "aix":
@@ -120,5 +141,5 @@ func GetPlatformCommand(parent interface{}) []string {
 	// 	result = command.Default
 	// }
 
-	return result
+	// return result
 }
