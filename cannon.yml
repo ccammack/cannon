@@ -57,7 +57,8 @@ file_conversion_rules:
     type: extension
     matches: [bmp, ico, cur, tif, tiff]
     command:
-      default: ["magick", "{input}", "{output}.jpg"]
+      default: ["convert", "{input}", "{output}.jpg"]
+      windows: ["magick", "{input}", "{output}.jpg"]
     tag: <img src='{src}'>
   - #
     # use imagemagick to convert the 1st page of the pdf to jpg
@@ -73,6 +74,16 @@ file_conversion_rules:
     matches: [pdf]
     command:
       default:
+        [
+          "convert",
+          "-density",
+          "150",
+          "{input}[0]",
+          "-quality",
+          "90",
+          "{output}.jpg",
+        ]
+      windows:
         [
           "magick",
           "-density",

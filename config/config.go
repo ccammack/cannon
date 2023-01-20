@@ -43,7 +43,7 @@ type PlatformCommand struct {
 func GetPlatformCommand(platformCommand PlatformCommand) []string {
 	platform := strings.Title(runtime.GOOS)
 	value := reflect.Indirect(reflect.ValueOf(platformCommand)).FieldByName(platform)
-	if !value.IsNil() && value.IsValid() && !value.IsZero() {
+	if value.IsValid() && !value.IsZero() && !value.IsNil() {
 		// return the platform-specific value that matches runtime.GOOS
 		slice, ok := value.Interface().([]string)
 		if !ok {
