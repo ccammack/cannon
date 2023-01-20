@@ -175,7 +175,7 @@ func matchConfigRules(file string) ([]string, string) {
 	for _, rule := range rules {
 		if rule.Type == "extension" {
 			if util.Find(rule.Matches, extension) < len(rule.Matches) {
-				return rule.Command, rule.Tag
+				return rule.Command.Default, rule.Tag
 			}
 		}
 		// TODO: add mime type

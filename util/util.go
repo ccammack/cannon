@@ -59,3 +59,45 @@ func DumpRequest(r *http.Request) {
 	fmt.Print(string(res))
 	// Append(string(res))
 }
+
+func getPlatformCommand(parent struct{}) []string {
+	// TODO: accept a yaml command parent struct or interface container and reflect the correct command value on runtime.GOOS
+	result := []string{}
+
+	// switch runtime.GOOS {
+	// case "aix":
+	// 	result = command.Aix
+	// case "android":
+	// 	result = command.Android
+	// case "darwin":
+	// 	result = command.Darwin
+	// case "dragonfly":
+	// 	result = command.Dragonfly
+	// case "freebsd":
+	// 	result = command.Freebsd
+	// case "illumos":
+	// 	result = command.Illumos
+	// case "ios":
+	// 	result = command.Ios
+	// case "js":
+	// 	result = command.Js
+	// case "linux":
+	// 	result = command.Linux
+	// case "netbsd":
+	// 	result = command.Netbsd
+	// case "openbsd":
+	// 	result = command.OpenBsd
+	// case "plan9":
+	// 	result = command.Plan9
+	// case "solaris":
+	// 	result = command.Solaris
+	// case "windows":
+	// 	result = command.Windows
+	// }
+
+	// if len(result) == 0 {
+	// 	result = command.Default
+	// }
+
+	return result
+}

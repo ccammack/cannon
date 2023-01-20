@@ -13,16 +13,19 @@ settings:
   # command and args to start the preview browser
   # set arg to enable auto-play for sound previews
   # requires the {url} placeholder arg in the correct position
-  #browser: [ 'brave-browser', '{url}' ]
+  # use command.default to specify the default command
+  # use browser.<platform> to specify per-platform exceptions from the $GOOS list: https://go.dev/doc/install/source#environment
   browser:
-    [
-      'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-      "--autoplay-policy=no-user-gesture-required",
-      "{url}",
-    ]
+    default: ["brave-browser", "{url}"]
+    windows:
+      [
+        'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+        "--autoplay-policy=no-user-gesture-required",
+        "{url}",
+      ]
 
   # browser polling time in milliseconds
-  interval: 25
+  interval: 33
 
   # cannon will return this exit value from the command line: $ cannon <file>
   # lf requires a non-zero return value to disable caching
@@ -31,13 +34,18 @@ settings:
   # precache this many files before and after the current file
   precache: 4
 
-  # auto_start:  true # cannon <file> will start the server automatically
-  # proc_count:  4    # do this many conversions concurrently
+  # TODO: auto_start:  true # cannon <file> will start the server automatically
+  # TODO: proc_count:  4    # do this many conversions concurrently
 
 file_conversion_rules:
   #
-  # command: must contain {input} and {output} params
-  #          the output param may also specify an extension: {output}.jpg
+  #    type: specify the type as either extension|mime
+  # matches: specify the pattern to match
+  # command: specify the file conversion command to run when a matching input file is found
+  #          must contain {input} and {output} params in the right positions
+  #          the output param may specify an extension: {output}.jpg
+  #          use command.default to specify the default command
+  #          use command.<platform> to specify per-platform exceptions from the $GOOS list: https://go.dev/doc/install/source#environment
   #     tag: must contain {src} param
   #
   - # native html5 image formats do not need any conversion and do not have a command field
@@ -45,13 +53,14 @@ file_conversion_rules:
     matches: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
     tag: <img src='{src}'>
   - # convert other image formats to jpg using imagemagick
-    # TODO: add the rest of the extenstions here: $ convert identify -list format | less
+    # TODO: add the rest of the extenstions here: $ magick identify -list format | less
     type: extension
     matches: [bmp, ico, cur, tif, tiff]
-    command: ["convert", "{input}", "{output}.jpg"]
+    command:
+      default: ["magick", "{input}", "{output}.jpg"]
     tag: <img src='{src}'>
   - #
-    # convert pdf 1st page to jpg using imagemagick
+    # use imagemagick to convert the 1st page of the pdf to jpg
     # imagemagick might require a policy change to allow this operation
     # edit the imagemagick policy file and grant "read | write" to the "PDF" pattern
     #   $ sudo nano /etc/ImageMagick-6/policy.xml
@@ -63,18 +72,14 @@ file_conversion_rules:
     type: extension
     matches: [pdf]
     command:
-      [
-        "convert",
-        "-density",
-        "150",
-        "{input}[0]",
-        "-quality",
-        "90",
-        "{output}.jpg",
-      ]
+      default:
+        [
+          "magick",
+          "-density",
+          "150",
+          "{input}[0]",
+          "-quality",
+          "90",
+          "{output}.jpg",
+        ]
     tag: <img src='{src}'>
-  # -
-  #   type: mime
-  #   matches: [application/text]
-  #   command: more t.txt
-  #   tag: head

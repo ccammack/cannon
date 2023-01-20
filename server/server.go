@@ -39,10 +39,11 @@ func serverIsRunnning() (int, bool) {
 }
 
 func startBrowser() {
-	address := config.GetConfig().Settings.Server
-	port := config.GetConfig().Settings.Port
+	config := config.GetConfig()
+	address := config.Settings.Server
+	port := config.Settings.Port
 	url := fmt.Sprintf("%s:%d", address, port)
-	browser := config.GetConfig().Settings.Browser
+	browser := config.Settings.Browser.Windows
 	command := browser[0]
 	rest := browser[1:]
 	args := []string{}
