@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 var (
@@ -40,18 +39,12 @@ func serverIsRunnning() (int, bool) {
 }
 
 func startBrowser() {
-	config := config.GetConfig()
-	address := config.Settings.Server
-	port := config.Settings.Port
+	cfg := config.GetConfig()
+	address := cfg.Settings.Server
+	port := cfg.Settings.Port
 	url := fmt.Sprintf("%s:%d", address, port)
-	browser := util.GetPlatformCommand(config.Settings.Browser) // config.Settings.Browser.Windows
-	command := browser[0]
-	rest := browser[1:]
-	args := []string{}
-	for _, arg := range rest {
-		arg := strings.Replace(arg, "{url}", url, 1)
-		args = append(args, arg)
-	}
+	browser := config.GetPlatformCommand(cfg.Settings.Browser)
+	command, args := util.FormatCommand(browser, map[string]string{"{url}": url})
 	cmd := exec.Command(command, args...)
 	if err := cmd.Start(); err != nil {
 		panic(err)

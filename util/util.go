@@ -5,15 +5,12 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package util
 
 import (
-	"cannon/config"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
-	"reflect"
-	"runtime"
 	"strings"
 )
 
@@ -64,82 +61,15 @@ func DumpRequest(r *http.Request) {
 	// Append(string(res))
 }
 
-func GetPlatformCommand(platformCommand config.PlatformCommand) []string {
-	platform := strings.Title(runtime.GOOS)
-	entry := reflect.Indirect(reflect.ValueOf(platformCommand)).FieldByName(platform)
-	if entry.IsValid() {
-		// config contains a platform-specific entry
-		fmt.Println(entry)        // [C:\Program Files (x86)\Google\Chrome\Application\chrome.exe --autoplay-policy=no-user-gesture-required {url}]
-		fmt.Println(entry.Kind()) // slice
-
-		//
-		// TODO: parse entry and return it as []string
-		//
-
-		return platformCommand.Windows
+func FormatCommand(commandArr []string, subs map[string]string) (string, []string) {
+	command := commandArr[0]
+	rest := commandArr[1:]
+	args := []string{}
+	for _, arg := range rest {
+		for k, v := range subs {
+			arg = strings.ReplaceAll(arg, k, v)
+		}
+		args = append(args, arg)
 	}
-
-	// return the default
-	return platformCommand.Default
-
-	// fmt.Println(platformCommand)
-
-	// r := reflect.ValueOf(platformCommand)
-	// // fmt.Fprint(r)
-	// f := reflect.Indirect(r).FieldByName("Windows")
-	// fmt.Println(f)
-	// fmt.Println(f.String())
-
-	// g := reflect.Indirect(r).FieldByName("Default")
-	// fmt.Println(g)
-	// fmt.Println(g.String())
-
-	// h := reflect.Indirect(r).FieldByName("Android")
-	// fmt.Println(h)
-	// fmt.Println(h.IsValid())
-
-	// obj := reflect.ValueOf(parent)
-	// elem := obj.Elem()
-	// w := elem.FieldByName("Windows")
-	// fmt.Println(w)
-
-	// TODO: accept a yaml command parent struct or interface container and reflect the correct command value on runtime.GOOS
-	// result := []string{}
-
-	// switch runtime.GOOS {
-	// case "aix":
-	// 	result = command.Aix
-	// case "android":
-	// 	result = command.Android
-	// case "darwin":
-	// 	result = command.Darwin
-	// case "dragonfly":
-	// 	result = command.Dragonfly
-	// case "freebsd":
-	// 	result = command.Freebsd
-	// case "illumos":
-	// 	result = command.Illumos
-	// case "ios":
-	// 	result = command.Ios
-	// case "js":
-	// 	result = command.Js
-	// case "linux":
-	// 	result = command.Linux
-	// case "netbsd":
-	// 	result = command.Netbsd
-	// case "openbsd":
-	// 	result = command.OpenBsd
-	// case "plan9":
-	// 	result = command.Plan9
-	// case "solaris":
-	// 	result = command.Solaris
-	// case "windows":
-	// 	result = command.Windows
-	// }
-
-	// if len(result) == 0 {
-	// 	result = command.Default
-	// }
-
-	// return result
+	return command, args
 }

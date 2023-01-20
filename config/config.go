@@ -6,6 +6,9 @@ Copyright © 2022 Chris Cammack <chris@ccammack.com>
 package config
 
 import (
+	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/adrg/xdg"
@@ -20,7 +23,7 @@ var (
 )
 
 type PlatformCommand struct {
-	Default []string `mapstructure:"default,omitempty"`
+	Default []string `mapstructure:"default"`
 	// Aix       []string `mapstructure:"aix,omitempty"`
 	// Android   []string `mapstructure:"android,omitempty"`
 	// Darwin    []string `mapstructure:"darwin,omitempty"`
@@ -37,11 +40,27 @@ type PlatformCommand struct {
 	Windows []string `mapstructure:"windows,omitempty"`
 }
 
+func GetPlatformCommand(platformCommand PlatformCommand) []string {
+	platform := strings.Title(runtime.GOOS)
+	value := reflect.Indirect(reflect.ValueOf(platformCommand)).FieldByName(platform)
+	if !value.IsNil() && value.IsValid() && !value.IsZero() {
+		// return the platform-specific value that matches runtime.GOOS
+		slice, ok := value.Interface().([]string)
+		if !ok {
+			panic("value not a []string")
+		}
+		if len(slice) > 0 {
+			return slice
+		}
+	}
+	return platformCommand.Default
+}
+
 type Config struct {
 	Settings struct {
 		Server   string          `mapstructure:"server"`
 		Port     int             `mapstructure:"port"`
-		Browser  PlatformCommand `mapstructure:"browser,omitempty"`
+		Browser  PlatformCommand `mapstructure:"browser"`
 		Interval int             `mapstructure:"interval"`
 		Precache int             `mapstructure:"precache"`
 		Exit     int             `mapstructure:"exit"`

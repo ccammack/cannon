@@ -170,12 +170,12 @@ func matchConfigRules(file string) ([]string, string) {
 	extension := strings.TrimLeft(path.Ext(file), ".")
 	// mime := // TODO: mime type goes here
 
-	config := config.GetConfig()
-	rules := config.FileConversionRules
+	cfg := config.GetConfig()
+	rules := cfg.FileConversionRules
 	for _, rule := range rules {
 		if rule.Type == "extension" {
 			if util.Find(rule.Matches, extension) < len(rule.Matches) {
-				return rule.Command.Default, rule.Tag
+				return config.GetPlatformCommand(rule.Command), rule.Tag
 			}
 		}
 		// TODO: add mime type
@@ -228,24 +228,12 @@ func convertFile(input string, hash string, output string) {
 	}
 
 	// find the first matching configuration rule
-	commandArr, tag := matchConfigRules(input)
+	conversion, tag := matchConfigRules(input)
 
 	// run the matching command and wait for it to complete
-	if len(commandArr) > 0 {
-		resource.combinedOutput += fmt.Sprintf("Config: %v\n\n", commandArr)
-
-		// TODO: write a util func that converts a command[] into command + args[] and makes string substitutions
-
-		// run the requested command
-		command := commandArr[0]
-		rest := commandArr[1:]
-		args := []string{}
-		for _, arg := range rest {
-			arg := strings.Replace(arg, "{input}", input, 1)
-			arg = strings.Replace(arg, "{output}", output, 1)
-			args = append(args, arg)
-		}
-
+	if len(conversion) > 0 {
+		resource.combinedOutput += fmt.Sprintf("Config: %v\n\n", conversion)
+		command, args := util.FormatCommand(conversion, map[string]string{"{input}": input, "{output}": output})
 		resource.combinedOutput += fmt.Sprintf("   Run: %s %s\n\n", command, strings.Trim(fmt.Sprintf("%v", args), "[]"))
 		out, err := exec.Command(command, args...).CombinedOutput()
 		resource.combinedOutput += string(out)
