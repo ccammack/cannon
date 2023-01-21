@@ -6,32 +6,28 @@
 #
 
 settings:
-  # server address and port (select an unused port above 1023)
+  # specify the server address and port (select an unused port above 1023)
   server: http://localhost
   port: 8888
 
-  # command and args to start the preview browser
-  # set arg to enable auto-play for sound previews
-  # requires the {url} placeholder arg in the correct position
-  # use command.default to specify the default command
-  # use browser.<platform> to specify per-platform exceptions from the $GOOS list: https://go.dev/doc/install/source#environment
+  # specify command and args to start the preview browser
+  #     use browser.default to specify the default command for all platforms
+  #     use browser.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
+  #     specify the {url} placeholder arg in the correct position so cannon can insert the server url
+  #     specify the appropriate argument for the browser to enable auto-play for sound previews
+  #     on Windows, it may be required to specify the full path to the command
   browser:
-    default: ["brave-browser", "{url}"]
-    windows:
-      [
-        'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-        "--autoplay-policy=no-user-gesture-required",
-        "{url}",
-      ]
+    default: ['brave-browser', '{url}']
+    windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
 
   # browser polling time in milliseconds
   interval: 33
 
   # cannon will return this exit value from the command line: $ cannon <file>
-  # lf requires a non-zero return value to disable caching
+  #     lf requires a non-zero return value to prevent it from trying to cache the file itself
   exit: 255
 
-  # precache this many files before and after the current file
+  # precache this many files before and after the current file to help sequential browsing
   precache: 4
 
   # TODO: auto_start:  true # cannon <file> will start the server automatically
@@ -39,28 +35,40 @@ settings:
 
 file_conversion_rules:
   #
-  #    type: specify the type as either extension|mime
-  # matches: specify the pattern to match
-  # command: specify the file conversion command to run when a matching input file is found
-  #          must contain {input} and {output} params in the right positions
-  #          the output param may specify an extension: {output}.jpg
-  #          use command.default to specify the default command
-  #          use command.<platform> to specify per-platform exceptions from the $GOOS list: https://go.dev/doc/install/source#environment
-  #     tag: must contain {src} param
+  # specify rules to convert each file type into its web-equivalent for display in the browser
+  #        type: specify the type as 'extension' (TODO: add support for 'mime' and 'magic')
+  #     matches: specify the per-type pattern to match
+  #              match patterns may contain * for partial matches
+  #     command: specify the file conversion command to run when a matching input file is found
+  #              use command.default to specify the default command
+  #              use command.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
+  #              specify {input} and {output} placeholders in the right positions so cannon can insert the filenames
+  #              the output param may specify an extension: {output}.jpg
+  #              on Windows, it may be required to specify the full path to the command
+  #         tag: must contain {src} param
   #
-  - # native html5 image formats do not need any conversion and do not have a command field
+
+  - #
+    # native html5 image formats do not need any conversion and do not specify a command
+    #
     type: extension
     matches: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
     tag: <img src='{src}'>
-  - # convert other image formats to jpg using imagemagick
-    # TODO: add the rest of the extenstions here: $ magick identify -list format | less
+
+  - #
+    # convert other image formats to jpg using imagemagick
+    # TODO: add the rest of the extensions here: $ magick identify -list format | less
+    #
     type: extension
     matches: [bmp, ico, cur, tif, tiff]
     command:
-      default: ["convert", "{input}", "{output}.jpg"]
-      windows: ["magick", "{input}", "{output}.jpg"]
+      default: ['convert', '{input}', '{output}.jpg']
+      windows: ['magick', '{input}', '{output}.jpg']
     tag: <img src='{src}'>
+
   - #
+    # use 'mutool convert' to convert the 1st page of the pdf to png
+    #
     # use imagemagick to convert the 1st page of the pdf to jpg
     # imagemagick might require a policy change to allow this operation
     # edit the imagemagick policy file and grant "read | write" to the "PDF" pattern
@@ -73,24 +81,6 @@ file_conversion_rules:
     type: extension
     matches: [pdf]
     command:
-      default:
-        [
-          "convert",
-          "-density",
-          "150",
-          "{input}[0]",
-          "-quality",
-          "90",
-          "{output}.jpg",
-        ]
-      windows:
-        [
-          "magick",
-          "-density",
-          "150",
-          "{input}[0]",
-          "-quality",
-          "90",
-          "{output}.jpg",
-        ]
+      default: ['convert', '{input}[0]', '{output}.png']
+      windows: ['magick', '{input}[0]', '{output}.png']
     tag: <img src='{src}'>
