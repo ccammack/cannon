@@ -238,6 +238,7 @@ func convertFile(input string, hash string, output string) {
 		out, err := exec.Command(command, args...).CombinedOutput()
 		resource.combinedOutput += string(out)
 		if err != nil {
+			// if the conversion fails, serve the combined stdout & stderror text from the console
 			resource.html = "<pre>" + resource.combinedOutput + "</pre>"
 			resource.htmlHash = makeHash(resource.html)
 			resource.ready = true
@@ -248,6 +249,7 @@ func convertFile(input string, hash string, output string) {
 				copy(largest, output)
 			}
 
+			// if the file conversion succeeds, serve the converted output file
 			resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
 			resource.htmlHash = makeHash(resource.html)
 			resource.ready = true
@@ -344,7 +346,7 @@ func getCurrentResourceData() map[string]string {
 		})
 	} else {
 		if !resource.ready {
-			// serve the file conversion's combined stdout+stderr until ready is true
+			// serve the filename until ready is true
 			html := "<p>Loading " + resource.inputName + "...</p>"
 			maps.Copy(data, map[string]string{
 				"title":    filepath.Base(resource.inputName),
@@ -353,7 +355,7 @@ func getCurrentResourceData() map[string]string {
 				"htmlhash": makeHash(html),
 			})
 		} else {
-			// serve the converted output file
+			// serve the converted output file (or error text on failure)
 			maps.Copy(data, map[string]string{
 				"title":    filepath.Base(resource.inputName),
 				"filehash": resource.inputNameHash,
