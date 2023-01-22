@@ -56,8 +56,29 @@ file_conversion_rules:
     matches: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
     tag: <img src='{src}'>
 
+  - #
+    # native html5 formats do not specify a command because they do not need conversion
+    #
+    type: extension
+    matches: [mp4, ogg, ogv, webm]
+    tag: <video autoplay controls muted src='{src}'>
+
+  - #
+    # native html5 formats do not specify a command because they do not need conversion
+    #
+    type: extension
+    matches: [mp3, wav]
+    tag: <audio autoplay controls src='{src}'>
+
+  - #
+    # native html5 formats do not specify a command because they do not need conversion
+    #
+    type: extension
+    matches: [html, htm]
+    tag: <iframe src='{src}'>
+
 #
-# add other native html5 formats here
+# add 
 #
 
   - #
