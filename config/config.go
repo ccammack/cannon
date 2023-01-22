@@ -40,7 +40,7 @@ type PlatformCommand struct {
 	Windows []string `mapstructure:"windows,omitempty"`
 }
 
-func GetPlatformCommand(platformCommand PlatformCommand) []string {
+func GetPlatformCommand(platformCommand PlatformCommand) (string, []string) {
 	platform := strings.Title(runtime.GOOS)
 	value := reflect.Indirect(reflect.ValueOf(platformCommand)).FieldByName(platform)
 	if value.IsValid() && !value.IsZero() && !value.IsNil() {
@@ -50,10 +50,10 @@ func GetPlatformCommand(platformCommand PlatformCommand) []string {
 			panic("value not a []string")
 		}
 		if len(slice) > 0 {
-			return slice
+			return runtime.GOOS + ":", slice
 		}
 	}
-	return platformCommand.Default
+	return "default:", platformCommand.Default
 }
 
 type Config struct {
@@ -66,8 +66,7 @@ type Config struct {
 		Exit     int             `mapstructure:"exit"`
 	} `mapstructure:"settings"`
 	FileConversionRules []struct {
-		Type    string          `mapstructure:"type"`
-		Matches []string        `mapstructure:"matches"`
+		Ext     []string        `mapstructure:"ext,omitempty"`
 		Tag     string          `mapstructure:"tag"`
 		Command PlatformCommand `mapstructure:"command,omitempty"`
 	} `mapstructure:"file_conversion_rules"`

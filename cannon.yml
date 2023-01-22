@@ -37,9 +37,7 @@ settings:
 file_conversion_rules:
   #
   # specify rules to convert each file type into its web-equivalent for display in the browser
-  #        type: specify the type as 'extension' (TODO: add support for 'mime' and 'magic')
-  #     matches: specify the per-type pattern to match
-  #              match patterns may contain * for partial matches
+  #         ext: specify the extension patterns to match
   #     command: specify the file conversion command to run when a matching input file is found
   #              use command.default to specify the default command
   #              use command.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
@@ -50,36 +48,30 @@ file_conversion_rules:
   #
 
   - # native html5 image formats do not need conversion
-    type: extension
-    matches: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
+    ext: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
     tag: <img src='{src}'>
 
   - # native html5 video formats do not need conversion
-    type: extension
-    matches: [mp4, ogg, ogv, webm]
+    ext: [mp4, ogg, ogv, webm]
     tag: <video controls muted src='{src}'>
 
   - # native html5 audio formats do not need conversion
-    type: extension
-    matches: [mp3, wav]
+    ext: [mp3, wav]
     tag: <audio autoplay controls src='{src}'>
 
   - # native html5 text formats do not need conversion
-    type: extension
-    matches: [html, htm]
+    ext: [html, htm]
     tag: <iframe src='{src}'>
 
   - # use mupdf to convert common document formats
-    type: extension
-    matches: [pdf, xps, cbz, epub, fb2]
+    ext: [pdf, xps, cbz, epub, fb2]
     command:
       default: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
       windows: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
     tag: <img src='{src}'>
 
   - # use ffmpeg to convert video formats
-    type: extension
-    matches:
+    ext:
         [
           mkv,
 
@@ -247,8 +239,7 @@ file_conversion_rules:
     # use imagemagick to convert other image formats
     #
   -
-    type: extension
-    matches:
+    ext:
       [
         tif,
 

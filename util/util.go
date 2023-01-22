@@ -12,6 +12,8 @@ import (
 	"net/http/httputil"
 	"os"
 	"strings"
+
+	"golang.org/x/exp/constraints"
 )
 
 var (
@@ -72,4 +74,24 @@ func FormatCommand(commandArr []string, subs map[string]string) (string, []strin
 		args = append(args, arg)
 	}
 	return command, args
+}
+
+func Min[T constraints.Ordered](args ...T) T {
+	min := args[0]
+	for _, x := range args {
+		if x < min {
+			min = x
+		}
+	}
+	return min
+}
+
+func Max[T constraints.Ordered](args ...T) T {
+	max := args[0]
+	for _, x := range args {
+		if x > max {
+			max = x
+		}
+	}
+	return max
 }

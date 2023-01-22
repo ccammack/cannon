@@ -193,25 +193,25 @@ func init() {
 	config.RegisterCallback(reloadCallback)
 }
 
-func matchConfigRules(file string) ([]string, string) {
+func matchConfigRules(file string) (string, string, []string, string) {
 	extension := strings.TrimLeft(path.Ext(file), ".")
-	// mime := // TODO: mime type goes here
+	// TODO: add mime support
 
 	cfg := config.GetConfig()
 	rules := cfg.FileConversionRules
 	for _, rule := range rules {
-		if rule.Type == "extension" {
-			if util.Find(rule.Matches, extension) < len(rule.Matches) {
-				return config.GetPlatformCommand(rule.Command), rule.Tag
+		if util.Find(rule.Ext, extension) < len(rule.Ext) {
+			match := fmt.Sprintf("ext: %v", rule.Ext)
+			if len(match) > 80 {
+				match = match[:util.Min(len(match), 80)] + "...]"
 			}
+			platform, command := config.GetPlatformCommand(rule.Command)
+			return match, platform, command, rule.Tag
 		}
-		// TODO: add mime type
-		// TODO: add generic binary
-		// TODO: add generic text
 	}
 
 	// no match found
-	return []string{}, ""
+	return "", "", []string{}, ""
 }
 
 func copy(input string, output string) {
@@ -255,13 +255,14 @@ func convertFile(input string, hash string, output string) {
 	}
 
 	// find the first matching configuration rule
-	conversion, tag := matchConfigRules(input)
+	match, platform, conversion, tag := matchConfigRules(input)
 
 	// run the matching command and wait for it to complete
 	if len(conversion) > 0 {
-		resource.combinedOutput += fmt.Sprintf("Config: %v\n\n", conversion)
+		resource.combinedOutput += fmt.Sprintf("  Match: %v\n", match)
+		resource.combinedOutput += fmt.Sprintf("Command: %v %v\n", platform, conversion)
 		command, args := util.FormatCommand(conversion, map[string]string{"{input}": input, "{output}": output})
-		resource.combinedOutput += fmt.Sprintf("   Run: %s %s\n\n", command, strings.Trim(fmt.Sprintf("%v", args), "[]"))
+		resource.combinedOutput += fmt.Sprintf("    Run: %s %s\n\n", command, strings.Trim(fmt.Sprintf("%v", args), "[]"))
 		out, err := exec.Command(command, args...).CombinedOutput()
 		resource.combinedOutput += string(out)
 		if err != nil {
