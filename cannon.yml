@@ -28,7 +28,7 @@ settings:
   exit: 255
 
   # precache this many files before and after the current file to help sequential browsing
-  precache: 4
+  precache: 0
 
   # precache this many file concurrently 
   #concurrent: 4
@@ -49,37 +49,27 @@ file_conversion_rules:
   #         tag: must contain {src} param
   #
 
-  - #
-    # native html5 formats do not specify a command because they do not need conversion
-    #
+  - # native html5 image formats do not need conversion
     type: extension
     matches: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
     tag: <img src='{src}'>
 
-  - #
-    # native html5 formats do not specify a command because they do not need conversion
-    #
+  - # native html5 video formats do not need conversion
     type: extension
     matches: [mp4, ogg, ogv, webm]
     tag: <video controls muted src='{src}'>
 
-  - #
-    # native html5 formats do not specify a command because they do not need conversion
-    #
+  - # native html5 audio formats do not need conversion
     type: extension
     matches: [mp3, wav]
     tag: <audio autoplay controls src='{src}'>
 
-  - #
-    # native html5 formats do not specify a command because they do not need conversion
-    #
+  - # native html5 text formats do not need conversion
     type: extension
     matches: [html, htm]
     tag: <iframe src='{src}'>
 
-  - #
-    # use mupdf to convert common document formats
-    #
+  - # use mupdf to convert common document formats
     type: extension
     matches: [pdf, xps, cbz, epub, fb2]
     command:
@@ -87,17 +77,13 @@ file_conversion_rules:
       windows: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
     tag: <img src='{src}'>
 
-  - #
-    # use ffmpeg to convert video formats
-    #
+  - # use ffmpeg to convert video formats
     type: extension
     matches:
         [
           mkv,
 
-          #
           # entries below from https://gist.github.com/newbamboo/283953/434041410f41147d10f7a9ab8d5941a53783244d
-          #
           3g2,
           3gp,
           4xm,
@@ -257,9 +243,10 @@ file_conversion_rules:
       windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '-vf', 'scale=320:-1', '{output}.png']
     tag: <img src='{src}'>
 
-  - #
+    #
     # use imagemagick to convert other image formats
     #
+  -
     type: extension
     matches:
       [
