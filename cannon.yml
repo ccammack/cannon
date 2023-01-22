@@ -61,7 +61,7 @@ file_conversion_rules:
     #
     type: extension
     matches: [mp4, ogg, ogv, webm]
-    tag: <video autoplay controls muted src='{src}'>
+    tag: <video controls muted src='{src}'>
 
   - #
     # native html5 formats do not specify a command because they do not need conversion
@@ -77,10 +77,6 @@ file_conversion_rules:
     matches: [html, htm]
     tag: <iframe src='{src}'>
 
-#
-# add 
-#
-
   - #
     # use mupdf to convert common document formats
     #
@@ -92,16 +88,185 @@ file_conversion_rules:
     tag: <img src='{src}'>
 
   - #
+    # use ffmpeg to convert video formats
+    #
+    type: extension
+    matches:
+        [
+          mkv,
+
+          #
+          # entries below from https://gist.github.com/newbamboo/283953/434041410f41147d10f7a9ab8d5941a53783244d
+          #
+          3g2,
+          3gp,
+          4xm,
+          aac,
+          ac3,
+          adts,
+          aiff,
+          alaw,
+          alsa,
+          amr,
+          apc,
+          ape,
+          asf,
+          asf_stream,
+          ass,
+          au,
+          avi,
+          avm2,
+          avs,
+          bethsoftvid,
+          bfi,
+          c93,
+          cavsvideo,
+          crc,
+          daud,
+          dirac,
+          dnxhd,
+          dsicin,
+          dts,
+          dv,
+          dv1394,
+          dvd,
+          dxa,
+          ea,
+          ea_cdata,
+          eac3,
+          f32be,
+          f32le,
+          f64be,
+          f64le,
+          ffm,
+          film_cpk,
+          flac,
+          flic,
+          flv,
+          framecrc,
+          gif,
+          gsm,
+          gxf,
+          h261,
+          h263,
+          h264,
+          idcin,
+          iff,
+          image2,
+          image2pipe,
+          ingenient,
+          ipmovie,
+          ipod,
+          iss,
+          lmlm4,
+          m4v,
+          matroska,
+          mjpeg,
+          mlp,
+          mm,
+          mmf,
+          mov,
+          mov,
+          mp4,
+          m4a,
+          3gp,
+          3g2,
+          mj2,
+          mp2,
+          mp3,
+          mp4,
+          mpc,
+          mpc8,
+          mpeg,
+          mpeg1video,
+          mpeg2video,
+          mpegts,
+          mpegtsraw,
+          mpegvideo,
+          mpjpeg,
+          msnwctcp,
+          mtv,
+          mulaw,
+          mvi,
+          mxf,
+          mxf_d10,
+          nc,
+          nsv,
+          null,
+          nut,
+          nuv,
+          ogg,
+          oma,
+          oss,
+          psp,
+          psxstr,
+          pva,
+          r3d,
+          rawvideo,
+          rcv,
+          redir,
+          rl2,
+          rm,
+          roq,
+          rpl,
+          rtp,
+          rtsp,
+          s16be,
+          s16le,
+          s24be,
+          s24le,
+          s32be,
+          s32le,
+          s8,
+          sdp,
+          shn,
+          siff,
+          smk,
+          sol,
+          svcd,
+          swf,
+          thp,
+          tiertexseq,
+          tta,
+          txd,
+          u16be,
+          u16le,
+          u24be,
+          u24le,
+          u32be,
+          u32le,
+          u8,
+          vc1,
+          vc1test,
+          vcd,
+          video4linux,
+          video4linux2,
+          vmd,
+          vob,
+          voc,
+          wav,
+          wc3movie,
+          wsaud,
+          wsvqa,
+          wv,
+          xa,
+          yuv4mpegpipe,
+        ]
+    command:
+      default: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '-vf', 'scale=320:-1', '{output}.png']
+      windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '-vf', 'scale=320:-1', '{output}.png']
+    tag: <img src='{src}'>
+
+  - #
     # use imagemagick to convert other image formats
     #
     type: extension
     matches:
       [
-        tif, # added by hand
+        tif,
+
         #
         # entries below were generated with 'magick identify -list format'
-        #   extensions handled by other rules have been commented out
-        #   TODO: remove the entries that are not actually extensions
         #
         3fr,
         3g2,
