@@ -73,32 +73,36 @@ file_conversion_rules:
   - # use ffmpeg to convert video formats
     ext:
         [
-          mkv,
+          mkv,  # both: https://en.wikipedia.org/wiki/Matroska
+          wmv,  # video: https://en.wikipedia.org/wiki/Windows_Media_Video
+          wma,  # audio: https://en.wikipedia.org/wiki/Windows_Media_Audio
+          ssa,  # text: # text: https://en.wikipedia.org/wiki/SubStation_Alpha
 
           # entries below from https://gist.github.com/newbamboo/283953/434041410f41147d10f7a9ab8d5941a53783244d
-          3g2,
-          3gp,
-          4xm,
-          aac,
-          ac3,
-          adts,
-          aiff,
-          alaw,
-          alsa,
-          amr,
-          apc,
-          ape,
-          asf,
-          asf_stream,
-          ass,
-          au,
-          avi,
-          avm2,
-          avs,
-          bethsoftvid,
-          bfi,
-          c93,
-          cavsvideo,
+
+          # alsa,       # not a file format: https://en.wikipedia.org/wiki/Advanced_Linux_Sound_Architecture
+          3g2,  # both: https://en.wikipedia.org/wiki/3GP_and_3G2
+          3gp,  # both: https://en.wikipedia.org/wiki/3GP_and_3G2
+          4xm,  # video: https://wiki.multimedia.cx/index.php/4X_IMA_ADPCM
+          aac,  # audio: https://en.wikipedia.org//wiki/Advanced_Audio_Coding
+          ac3,  # audio: https://en.wikipedia.org/wiki/Dolby_Digital
+          adts, # audio: https://en.wikipedia.org//wiki/Advanced_Audio_Coding
+          aiff, # audio: https://en.wikipedia.org/wiki/Audio_Interchange_File_Format
+          alaw, # audio: https://en.wikipedia.org/wiki/A-law_algorithm
+          amr,  # audio: https://en.wikipedia.org/wiki/Adaptive_Multi-Rate_audio_codec
+          apc,  # audio: https://fileinfo.com/extension/apc
+          ape,  # audio: https://en.wikipedia.org/wiki/Monkey's_Audio
+          asf,  # both: https://en.wikipedia.org//wiki/Advanced_Systems_Format
+          # asf_stream, # not a file format
+          ass,  # text: https://en.wikipedia.org/wiki/SubStation_Alpha
+          au,   # audio: https://en.wikipedia.org/wiki/Au_file_format
+          avi,  # video: https://en.wikipedia.org/wiki/Audio_Video_Interleave
+          avm2, # action script: https://stackoverflow.com/questions/416050/avm2-and-abc-adobes-actionscript-bytecode-format-spec-licensing-can-i-use-i
+          avs,  # both: https://filext.com/file-extension/AVS
+          bethsoftvid,  # video: https://ffmpeg.org/doxygen/2.8/bethsoftvid_8c_source.html
+          bfi,  # video: https://fileinfo.com/extension/bfi
+          c93,  # video: https://wiki.multimedia.cx/index.php/C93
+          cavsvideo,    # video: https://www.file-extension.info/format/cavs
           crc,
           daud,
           dirac,
@@ -137,22 +141,20 @@ file_conversion_rules:
           ipod,
           iss,
           lmlm4,
-          m4v,
+          m4a,
+          m4v,  # video: https://en.wikipedia.org/wiki/M4V
           matroska,
+          mj2,
           mjpeg,
           mlp,
           mm,
           mmf,
           mov,
           mov,
-          mp4,
-          m4a,
-          3gp,
-          3g2,
-          mj2,
           mp2,
           mp3,
           mp4,
+          mp4,  # both: https://en.wikipedia.org/wiki/MP4_file_format
           mpc,
           mpc8,
           mpeg,
