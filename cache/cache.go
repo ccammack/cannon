@@ -37,13 +37,19 @@ const PageTemplate = `
 			{{.title}}
 		</title>
 		<style>
+			div {
+				width:95vw;
+				height:95vh;
+			}
 			img {
 				max-width: 100%;
-				max-height: 100vh;
+				height:auto;
+				max-height: 100%;
 			}
 			video {
 				max-width: 100%;
 				height: auto;
+				max-height: 100%;
 			}
 			iframe {
 				position: absolute;
@@ -54,8 +60,9 @@ const PageTemplate = `
 				border: 0;
 			}
 			object {
-				width: 100%;
-				height: 100vh;
+				max-width: 100%;
+				height: auto;
+				max-height: 100%;
 			}
 		</style>
 		<script>
@@ -434,7 +441,7 @@ func getCurrentResourceData() map[string]template.HTML {
 	} else {
 		if !resource.ready {
 			// serve the filename until ready is true
-			//html := "<p>Loading " + resource.inputName + "...</p>"
+			// html := "<p>Loading " + resource.inputName + "...</p>"
 			html := ""
 			maps.Copy(data, map[string]template.HTML{
 				"title":    template.HTML(filepath.Base(resource.inputName)),
