@@ -446,7 +446,7 @@ func getCurrentResourceData() map[string]template.HTML {
 		})
 	} else {
 		if !resource.ready {
-			// serve a spinner until ready is true
+			// serve a spinner until ready is true - https://codepen.io/nikhil8krishnan/pen/rVoXJa
 			html := `
 				<svg version="1.1" id="spinner" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 					viewBox="0 0 100 100" enable-background="new 0 0 0 0" xml:space="preserve">
