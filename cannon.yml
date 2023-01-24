@@ -1,12 +1,6 @@
-# version: 1.0 # do not change format
-# should i use a separate yaml file for each version update (config.v1.yml)
-
-#
-# ~/.config/cannon/cannon.yml (xdg.ConfigHome + "/cannon")
-#
 
 settings:
-  # specify the server address and port (select an unused port above 1023)
+  # specify server address and port (select an unused port above 1023)
   server: http://localhost
   port: 8888
 
@@ -14,37 +8,40 @@ settings:
   #     use browser.default to specify the default command for all platforms
   #     use browser.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
   #     specify the {url} placeholder arg in the correct position so cannon can insert the server url
-  #     specify the appropriate argument for the browser to enable auto-play for sound previews
+  #     specify the appropriate argument for the browser to enable auto-play for media previews
   #     on Windows, it may be required to specify the full path to the command
   browser:
-    default: ['brave-browser', '{url}']
+    default: ['chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
     windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
 
   # browser polling time in milliseconds
   interval: 33
 
-  # cannon will return this exit value from the command line: $ cannon <file>
+  # specify command and args to detect a file's mime-type
+  #     use mime.default to specify the default command for all platforms
+  #     use mime.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
+  #     specify the {file} placeholder arg in the correct position so cannon can insert the selected file
+  #     on Windows, it may be required to specify the full path to the command
+  mime:
+    default: ['file', '-b', '--mime-type', '{file}']
+    windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{file}']
+
+  # cannon will set this exit value at the command line: $ cannon <file>
   #     lf requires a non-zero return value to prevent it from trying to cache the file itself
   exit: 255
-
-  # precache this many files before and after the current file to help sequential browsing
-  precache: 0
-
-  # precache this many file concurrently 
-  #concurrent: 4
-  #parallel: 4
 
 file_conversion_rules:
   #
   # specify rules to convert each file type into its web-equivalent for display in the browser
-  #         ext: specify the extension patterns to match
+  #    ext|mime: specify patterns to match either the file extension or mime type
   #     command: specify the file conversion command to run when a matching input file is found
   #              use command.default to specify the default command
   #              use command.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
   #              specify {input} and {output} placeholders in the right positions so cannon can insert the filenames
   #              the output param may specify an extension: {output}.jpg
   #              on Windows, it may be required to specify the full path to the command
-  #         tag: must contain {src} param
+  #         tag: specify the html tag to display the output file in the browser
+  #              specify the {src} placeholder arg in the correct position so cannon can insert the converted file
   #
 
   - # native html5 image formats do not need conversion
@@ -53,469 +50,33 @@ file_conversion_rules:
 
   - # native html5 video formats do not need conversion
     ext: [mp4, ogg, ogv, webm]
-    tag: <video controls muted src='{src}'>
+    tag: <video autoplay loop controls src='{src}'>
 
   - # native html5 audio formats do not need conversion
     ext: [mp3, wav]
-    tag: <audio autoplay controls src='{src}'>
+    tag: <audio autoplay loop controls src='{src}'>
 
   - # native html5 text formats do not need conversion
     ext: [html, htm]
     tag: <iframe src='{src}'>
 
-  - # use mupdf to convert common document formats
+  - # use mupdf to sample the first page of common document formats
     ext: [pdf, xps, cbz, epub, fb2]
     command:
       default: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
       windows: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
     tag: <img src='{src}'>
 
-  - # use ffmpeg to convert video formats
-    ext:
-        [
-          mkv,  # both: https://en.wikipedia.org/wiki/Matroska
-          wmv,  # video: https://en.wikipedia.org/wiki/Windows_Media_Video
-          wma,  # audio: https://en.wikipedia.org/wiki/Windows_Media_Audio
-          ssa,  # text: # text: https://en.wikipedia.org/wiki/SubStation_Alpha
-
-          # entries below from https://gist.github.com/newbamboo/283953/434041410f41147d10f7a9ab8d5941a53783244d
-
-          # alsa,       # not a file format: https://en.wikipedia.org/wiki/Advanced_Linux_Sound_Architecture
-          3g2,  # both: https://en.wikipedia.org/wiki/3GP_and_3G2
-          3gp,  # both: https://en.wikipedia.org/wiki/3GP_and_3G2
-          4xm,  # video: https://wiki.multimedia.cx/index.php/4X_IMA_ADPCM
-          aac,  # audio: https://en.wikipedia.org//wiki/Advanced_Audio_Coding
-          ac3,  # audio: https://en.wikipedia.org/wiki/Dolby_Digital
-          adts, # audio: https://en.wikipedia.org//wiki/Advanced_Audio_Coding
-          aiff, # audio: https://en.wikipedia.org/wiki/Audio_Interchange_File_Format
-          alaw, # audio: https://en.wikipedia.org/wiki/A-law_algorithm
-          amr,  # audio: https://en.wikipedia.org/wiki/Adaptive_Multi-Rate_audio_codec
-          apc,  # audio: https://fileinfo.com/extension/apc
-          ape,  # audio: https://en.wikipedia.org/wiki/Monkey's_Audio
-          asf,  # both: https://en.wikipedia.org//wiki/Advanced_Systems_Format
-          # asf_stream, # not a file format
-          ass,  # text: https://en.wikipedia.org/wiki/SubStation_Alpha
-          au,   # audio: https://en.wikipedia.org/wiki/Au_file_format
-          avi,  # video: https://en.wikipedia.org/wiki/Audio_Video_Interleave
-          avm2, # action script: https://stackoverflow.com/questions/416050/avm2-and-abc-adobes-actionscript-bytecode-format-spec-licensing-can-i-use-i
-          avs,  # both: https://filext.com/file-extension/AVS
-          bethsoftvid,  # video: https://ffmpeg.org/doxygen/2.8/bethsoftvid_8c_source.html
-          bfi,  # video: https://fileinfo.com/extension/bfi
-          c93,  # video: https://wiki.multimedia.cx/index.php/C93
-          cavsvideo,    # video: https://www.file-extension.info/format/cavs
-          crc,
-          daud,
-          dirac,
-          dnxhd,
-          dsicin,
-          dts,
-          dv,
-          dv1394,
-          dvd,
-          dxa,
-          ea,
-          ea_cdata,
-          eac3,
-          f32be,
-          f32le,
-          f64be,
-          f64le,
-          ffm,
-          film_cpk,
-          flac,
-          flic,
-          flv,
-          framecrc,
-          gif,
-          gsm,
-          gxf,
-          h261,
-          h263,
-          h264,
-          idcin,
-          iff,
-          image2,
-          image2pipe,
-          ingenient,
-          ipmovie,
-          ipod,
-          iss,
-          lmlm4,
-          m4a,
-          m4v,  # video: https://en.wikipedia.org/wiki/M4V
-          matroska,
-          mj2,
-          mjpeg,
-          mlp,
-          mm,
-          mmf,
-          mov,
-          mov,
-          mp2,
-          mp3,
-          mp4,
-          mp4,  # both: https://en.wikipedia.org/wiki/MP4_file_format
-          mpc,
-          mpc8,
-          mpeg,
-          mpeg1video,
-          mpeg2video,
-          mpegts,
-          mpegtsraw,
-          mpegvideo,
-          mpjpeg,
-          msnwctcp,
-          mtv,
-          mulaw,
-          mvi,
-          mxf,
-          mxf_d10,
-          nc,
-          nsv,
-          null,
-          nut,
-          nuv,
-          ogg,
-          oma,
-          oss,
-          psp,
-          psxstr,
-          pva,
-          r3d,
-          rawvideo,
-          rcv,
-          redir,
-          rl2,
-          rm,
-          roq,
-          rpl,
-          rtp,
-          rtsp,
-          s16be,
-          s16le,
-          s24be,
-          s24le,
-          s32be,
-          s32le,
-          s8,
-          sdp,
-          shn,
-          siff,
-          smk,
-          sol,
-          svcd,
-          swf,
-          thp,
-          tiertexseq,
-          tta,
-          txd,
-          u16be,
-          u16le,
-          u24be,
-          u24le,
-          u32be,
-          u32le,
-          u8,
-          vc1,
-          vc1test,
-          vcd,
-          video4linux,
-          video4linux2,
-          vmd,
-          vob,
-          voc,
-          wav,
-          wc3movie,
-          wsaud,
-          wsvqa,
-          wv,
-          xa,
-          yuv4mpegpipe,
-        ]
+  - # use ffmpeg to sample the first keyframe of non-native video files
+    mime: ['video']
     command:
-      default: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '-vf', 'scale=320:-1', '{output}.png']
-      windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '-vf', 'scale=320:-1', '{output}.png']
+      default: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
+      windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
     tag: <img src='{src}'>
 
-    #
-    # use imagemagick to convert other image formats
-    #
-  -
-    ext:
-      [
-        tif,
-
-        #
-        # entries below were generated with 'magick identify -list format'
-        #
-        3fr,
-        3g2,
-        3gp,
-        aai,
-        ai,
-        apng,
-        art,
-        arw,
-        ashlar,
-        avi,
-        avif,
-        avs,
-        bgr,
-        bgra,
-        bgro,
-        bie,
-        bmp,
-        bmp2,
-        bmp3,
-        brf,
-        cal,
-        cals,
-        canvas,
-        caption,
-        cin,
-        cip,
-        clip,
-        clipboard,
-        cmyk,
-        cmyka,
-        cr2,
-        cr3,
-        crw,
-        cube,
-        cur,
-        cut,
-        data,
-        dcm,
-        dcr,
-        dcraw,
-        dcx,
-        dds,
-        dfont,
-        djvu,
-        dng,
-        dot,
-        dps,
-        dpx,
-        dxt1,
-        dxt5,
-        emf,
-        epdf,
-        epi,
-        eps,
-        eps2,
-        eps3,
-        epsf,
-        epsi,
-        ept,
-        ept2,
-        ept3,
-        erf,
-        exr,
-        farbfeld,
-        fax,
-        ff,
-        file,
-        fits,
-        fl32,
-        flif,
-        flv,
-        fpx,
-        fractal,
-        ftp,
-        fts,
-        ftxt,
-        g3,
-        g4,
-        gif,
-        gif87,
-        gradient,
-        gray,
-        graya,
-        group4,
-        gv,
-        hald,
-        hdr,
-        heic,
-        heif,
-        histogram,
-        hrz,
-        htm,
-        html,
-        http,
-        https,
-        icb,
-        ico,
-        icon,
-        iiq,
-        info,
-        inline,
-        ipl,
-        isobrl,
-        isobrl6,
-        j2c,
-        j2k,
-        jbg,
-        jbig,
-        jng,
-        jnx,
-        jp2,
-        jpc,
-        jpe,
-        jpeg,
-        jpg,
-        jpm,
-        jps,
-        jpt,
-        #json,
-        jxl,
-        k25,
-        kdc,
-        kernel,
-        label,
-        m2v,
-        m4v,
-        mac,
-        map,
-        mask,
-        mat,
-        matte,
-        mef,
-        miff,
-        mkv,
-        mng,
-        mono,
-        mov,
-        mp4,
-        mpc,
-        mpeg,
-        mpg,
-        mrw,
-        msl,
-        msvg,
-        mtv,
-        mvg,
-        nef,
-        nrw,
-        null,
-        ora,
-        orf,
-        otb,
-        otf,
-        pal,
-        palm,
-        pam,
-        pango,
-        pattern,
-        pbm,
-        pcd,
-        pcds,
-        pcl,
-        pct,
-        pcx,
-        pdb,
-        pdf,
-        pdfa,
-        pef,
-        pes,
-        pfa,
-        pfb,
-        pfm,
-        pgm,
-        pgx,
-        phm,
-        picon,
-        pict,
-        pix,
-        pjpeg,
-        plasma,
-        png,
-        png00,
-        png24,
-        png32,
-        png48,
-        png64,
-        png8,
-        pnm,
-        pocketmod,
-        ppm,
-        ps,
-        ps2,
-        ps3,
-        psb,
-        psd,
-        ptif,
-        pwp,
-        qoi,
-        radial-gradient,
-        raf,
-        ras,
-        raw,
-        rgb,
-        rgb565,
-        rgba,
-        rgbo,
-        rgf,
-        rla,
-        rle,
-        rmf,
-        rsvg,
-        rw2,
-        scr,
-        screenshot,
-        sct,
-        sfw,
-        sgi,
-        shtml,
-        six,
-        sixel,
-        sparse-color,
-        sr2,
-        srf,
-        stegano,
-        strimg,
-        sun,
-        svg,
-        svgz,
-        text,
-        tga,
-        thumbnail,
-        tiff,
-        tiff64,
-        tile,
-        tim,
-        tm2,
-        ttc,
-        ttf,
-        #txt,
-        ubrl,
-        ubrl6,
-        uil,
-        uyvy,
-        vda,
-        vicar,
-        vid,
-        viff,
-        vips,
-        vst,
-        wbmp,
-        webm,
-        webp,
-        wmf,
-        wmv,
-        wpg,
-        x3f,
-        xbm,
-        xc,
-        xcf,
-        xpm,
-        xps,
-        xv,
-        yaml,
-        ycbcr,
-        ycbcra,
-        yuv,
-      ]
+  - # use ffmpeg to sample the first few seconds of non-native audio files
+    mime: ['audio']
     command:
-      default: ['convert', '{input}', '{output}.jpg']
-      windows: ['magick', '{input}', '{output}.jpg']
-    tag: <img src='{src}'>
+      default: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
+      windows: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
+    tag: <audio autoplay loop controls src='{src}'>

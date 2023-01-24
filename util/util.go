@@ -6,11 +6,15 @@ package util
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"golang.org/x/exp/constraints"
@@ -33,7 +37,7 @@ func Append(text string) {
 	}
 }
 
-func RespondJson(w *http.ResponseWriter, jsonMap map[string]string) {
+func RespondJson(w *http.ResponseWriter, jsonMap map[string]template.HTML) {
 	if w != nil {
 		(*w).Header().Set("Content-Type", "application/json")
 		(*w).WriteHeader(http.StatusOK)
@@ -46,7 +50,7 @@ func RespondJson(w *http.ResponseWriter, jsonMap map[string]string) {
 func Find(a []string, x string) int {
 	// https://yourbasic.org/golang/find-search-contains-slice/
 	for i, n := range a {
-		if x == n {
+		if strings.Contains(n, x) || strings.Contains(x, n) {
 			return i
 		}
 	}
@@ -94,4 +98,22 @@ func Max[T constraints.Ordered](args ...T) T {
 		}
 	}
 	return max
+}
+
+// Filename is the __filename equivalent
+func Filename() (string, error) {
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		return "", errors.New("unable to get the current filename")
+	}
+	return filename, nil
+}
+
+// Dirname is the __dirname equivalent
+func Dirname() (string, error) {
+	filename, err := Filename()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(filename), nil
 }

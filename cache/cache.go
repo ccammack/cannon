@@ -59,28 +59,27 @@ const PageTemplate = `
 			}
 		</style>
 		<script>
-			let filehash = "0";
-			let htmlhash = "0";
+			const htmlhash = "{{.htmlhash}}";
 			window.onload = function(e) {
-				// copy server address from document.location.href
+				// replace placeholder media address with document.location.href
+				const container = document.getElementById("container");
+				if (container) {
+					const inner = container.innerHTML.replace("{document.location.href}", document.location.href);
+					container.innerHTML = inner;
+				}
+
+				// generate server /status address from document.location.href
 				const statusurl = document.location.href + "status";
 				setTimeout(function status() {
 					// ask the server for updates and reload if needed
 					fetch(statusurl)
 					.then((response) => response.json())
 					.then((data) => {
-						if ((filehash != data.filehash) || (htmlhash != data.htmlhash)) {
-							filehash = data.filehash;
-							htmlhash = data.htmlhash;
-							document.title = data.title;
-							const container = document.getElementById("container");
-							if (container) {
-								// copy server address from document.location.href
-								const inner = data.html.replace("{document.location.href}", document.location.href);
-								container.innerHTML = inner;
-							}
+						if (htmlhash != data.htmlhash) {
+							location.reload()
+						} else {
+							setTimeout(status, {{.interval}});
 						}
-						setTimeout(status, {{.interval}});
 					})
 					.catch(err => {
 						// Failed to load resource: net::ERR_CONNECTION_REFUSED
@@ -96,7 +95,7 @@ const PageTemplate = `
 		</script>
 	</head>
 	<body>
-		<div id="container"></div>
+		<div id="container">{{.html}}</div>
 	</body>
 </html>
 `
@@ -193,15 +192,35 @@ func init() {
 	config.RegisterCallback(reloadCallback)
 }
 
+func getMimeType(file string) string {
+	cfg := config.GetConfig()
+	_, command := config.GetPlatformCommand(cfg.Settings.Mime)
+	if len(command) > 0 {
+		cmd, args := util.FormatCommand(command, map[string]string{"{file}": file})
+		out, err := exec.Command(cmd, args...).CombinedOutput()
+		if err == nil {
+			return strings.TrimSuffix(string(out), "\n")
+		}
+	}
+	return ""
+}
+
 func matchConfigRules(file string) (string, string, []string, string) {
 	extension := strings.TrimLeft(path.Ext(file), ".")
-	// TODO: add mime support
+	mimetype := getMimeType(file)
 
 	cfg := config.GetConfig()
 	rules := cfg.FileConversionRules
 	for _, rule := range rules {
-		if util.Find(rule.Ext, extension) < len(rule.Ext) {
+		if len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
 			match := fmt.Sprintf("ext: %v", rule.Ext)
+			if len(match) > 80 {
+				match = match[:util.Min(len(match), 80)] + "...]"
+			}
+			platform, command := config.GetPlatformCommand(rule.Command)
+			return match, platform, command, rule.Tag
+		} else if len(rule.Mime) > 0 && util.Find(rule.Mime, mimetype) < len(rule.Mime) {
+			match := fmt.Sprintf("mime: %v", rule.Mime)
 			if len(match) > 80 {
 				match = match[:util.Min(len(match), 80)] + "...]"
 			}
@@ -255,15 +274,15 @@ func convertFile(input string, hash string, output string) {
 	}
 
 	// find the first matching configuration rule
-	match, platform, conversion, tag := matchConfigRules(input)
+	match, platform, command, tag := matchConfigRules(input)
 
 	// run the matching command and wait for it to complete
-	if len(conversion) > 0 {
+	if len(command) > 0 {
 		resource.combinedOutput += fmt.Sprintf("  Match: %v\n", match)
-		resource.combinedOutput += fmt.Sprintf("Command: %v %v\n", platform, conversion)
-		command, args := util.FormatCommand(conversion, map[string]string{"{input}": input, "{output}": output})
-		resource.combinedOutput += fmt.Sprintf("    Run: %s %s\n\n", command, strings.Trim(fmt.Sprintf("%v", args), "[]"))
-		out, err := exec.Command(command, args...).CombinedOutput()
+		resource.combinedOutput += fmt.Sprintf("Command: %v %v\n", platform, command)
+		cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
+		resource.combinedOutput += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
+		out, err := exec.Command(cmd, args...).CombinedOutput()
 		resource.combinedOutput += string(out)
 		if err != nil {
 			// if the conversion fails, serve the combined stdout & stderror text from the console
@@ -320,7 +339,7 @@ func createResource(file string, hash string) {
 func precacheNearbyFiles(file string) {
 	// TODO: need to sort the files to match their display order in lf and others
 
-	precache := config.GetConfig().Settings.Precache
+	precache := 0 // config.GetConfig().Settings.Precache
 	if precache == 0 {
 		return
 	}
@@ -353,12 +372,12 @@ func precacheNearbyFiles(file string) {
 	}
 }
 
-func getCurrentResourceData() map[string]string {
+func getCurrentResourceData() map[string]template.HTML {
 	// return the current resource for display
 
 	// set default values
-	data := map[string]string{
-		"interval": strconv.Itoa(config.GetConfig().Settings.Interval),
+	data := map[string]template.HTML{
+		"interval": template.HTML(strconv.Itoa(config.GetConfig().Settings.Interval)),
 	}
 
 	// look up the current resource if it exists
@@ -366,29 +385,27 @@ func getCurrentResourceData() map[string]string {
 	if !ok {
 		// serve default values until the first resource is added
 		html := "<p>Waiting for file...</p>"
-		maps.Copy(data, map[string]string{
+		maps.Copy(data, map[string]template.HTML{
 			"title":    "Cannon preview",
-			"filehash": "",
-			"html":     html,
-			"htmlhash": makeHash(html),
+			"html":     template.HTML(html),
+			"htmlhash": template.HTML(makeHash(html)),
 		})
 	} else {
 		if !resource.ready {
 			// serve the filename until ready is true
-			html := "<p>Loading " + resource.inputName + "...</p>"
-			maps.Copy(data, map[string]string{
-				"title":    filepath.Base(resource.inputName),
-				"filehash": resource.inputNameHash,
-				"html":     html,
-				"htmlhash": makeHash(html),
+			//html := "<p>Loading " + resource.inputName + "...</p>"
+			html := ""
+			maps.Copy(data, map[string]template.HTML{
+				"title":    template.HTML(filepath.Base(resource.inputName)),
+				"html":     template.HTML(html),
+				"htmlhash": template.HTML(makeHash(html)),
 			})
 		} else {
 			// serve the converted output file (or error text on failure)
-			maps.Copy(data, map[string]string{
-				"title":    filepath.Base(resource.inputName),
-				"filehash": resource.inputNameHash,
-				"html":     resource.html,
-				"htmlhash": resource.htmlHash,
+			maps.Copy(data, map[string]template.HTML{
+				"title":    template.HTML(filepath.Base(resource.inputName)),
+				"html":     template.HTML(resource.html),
+				"htmlhash": template.HTML(resource.htmlHash),
 			})
 		}
 	}
@@ -434,7 +451,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	precacheNearbyFiles(file)
 
 	// respond with { state: updated }
-	body := map[string]string{
+	body := map[string]template.HTML{
 		"state": "updated",
 	}
 	util.RespondJson(w, body)

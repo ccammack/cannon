@@ -6,6 +6,7 @@ Copyright © 2022 Chris Cammack <chris@ccammack.com>
 package config
 
 import (
+	"cannon/util"
 	"reflect"
 	"runtime"
 	"strings"
@@ -23,21 +24,22 @@ var (
 )
 
 type PlatformCommand struct {
-	Default []string `mapstructure:"default"`
-	// Aix       []string `mapstructure:"aix,omitempty"`
-	// Android   []string `mapstructure:"android,omitempty"`
-	// Darwin    []string `mapstructure:"darwin,omitempty"`
-	// Dragonfly []string `mapstructure:"dragonfly,omitempty"`
-	// Freebsd   []string `mapstructure:"freebsd,omitempty"`
-	// Illumos   []string `mapstructure:"illumos,omitempty"`
-	// Ios       []string `mapstructure:"ios,omitempty"`
-	// Js        []string `mapstructure:"js,omitempty"`
-	// Linux     []string `mapstructure:"linux,omitempty"`
-	// Netbsd    []string `mapstructure:"netbsd,omitempty"`
-	// Openbsd   []string `mapstructure:"openbsd,omitempty"`
-	// Plan9     []string `mapstructure:"plan9,omitempty"`
-	// Solaris   []string `mapstructure:"solaris,omitempty"`
-	Windows []string `mapstructure:"windows,omitempty"`
+	// platform names must match the $GOOS list in https://go.dev/doc/install/source#environment
+	Default   []string `mapstructure:"default"`
+	Aix       []string `mapstructure:"aix,omitempty"`
+	Android   []string `mapstructure:"android,omitempty"`
+	Darwin    []string `mapstructure:"darwin,omitempty"`
+	Dragonfly []string `mapstructure:"dragonfly,omitempty"`
+	Freebsd   []string `mapstructure:"freebsd,omitempty"`
+	Illumos   []string `mapstructure:"illumos,omitempty"`
+	Ios       []string `mapstructure:"ios,omitempty"`
+	Js        []string `mapstructure:"js,omitempty"`
+	Linux     []string `mapstructure:"linux,omitempty"`
+	Netbsd    []string `mapstructure:"netbsd,omitempty"`
+	Openbsd   []string `mapstructure:"openbsd,omitempty"`
+	Plan9     []string `mapstructure:"plan9,omitempty"`
+	Solaris   []string `mapstructure:"solaris,omitempty"`
+	Windows   []string `mapstructure:"windows,omitempty"`
 }
 
 func GetPlatformCommand(platformCommand PlatformCommand) (string, []string) {
@@ -63,10 +65,12 @@ type Config struct {
 		Browser  PlatformCommand `mapstructure:"browser"`
 		Interval int             `mapstructure:"interval"`
 		Precache int             `mapstructure:"precache"`
+		Mime     PlatformCommand `mapstructure:"mime,omitempty"`
 		Exit     int             `mapstructure:"exit"`
 	} `mapstructure:"settings"`
 	FileConversionRules []struct {
 		Ext     []string        `mapstructure:"ext,omitempty"`
+		Mime    []string        `mapstructure:"mime,omitempty"`
 		Tag     string          `mapstructure:"tag"`
 		Command PlatformCommand `mapstructure:"command,omitempty"`
 	} `mapstructure:"file_conversion_rules"`
@@ -105,9 +109,12 @@ func init() {
 	// load config file
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("cannon")
-	viper.AddConfigPath(xdg.ConfigHome + "/cannon")
-	viper.AddConfigPath("/home/ccammack/work/cannon")                // TODO: development only
-	viper.AddConfigPath("C:/Users/clc/work/ccammack.private/cannon") // TODO: development only
+	viper.AddConfigPath(xdg.Home + "/.config/cannon") // allow ~/.config on windows
+	viper.AddConfigPath(xdg.ConfigHome + "/cannon")   // default xdg locations on all platforms
+	dir, err := util.Dirname()
+	if err == nil {
+		viper.AddConfigPath(dir + "/..") // search development config location last
+	}
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		// reload and notify subscribers
 		if err := loadConfig(); err != nil {
