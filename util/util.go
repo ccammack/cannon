@@ -48,10 +48,11 @@ func RespondJson(w *http.ResponseWriter, jsonMap map[string]template.HTML) {
 }
 
 func Find(a []string, x string) int {
-	// https://yourbasic.org/golang/find-search-contains-slice/
-	for i, n := range a {
-		if strings.Contains(n, x) || strings.Contains(x, n) {
-			return i
+	if len(x) > 0 {
+		for i, n := range a {
+			if len(n) > 0 && (strings.Contains(n, x) || strings.Contains(x, n)) {
+				return i
+			}
 		}
 	}
 	return len(a)

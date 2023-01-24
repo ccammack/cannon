@@ -68,14 +68,14 @@ file_conversion_rules:
     tag: <img src='{src}'>
 
   - # use ffmpeg to sample the first keyframe of non-native video files
-    mime: ['video']
+    mime: [video]
     command:
       default: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
       windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
     tag: <img src='{src}'>
 
   - # use ffmpeg to sample the first few seconds of non-native audio files
-    mime: ['audio']
+    mime: [audio]
     command:
       default: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
       windows: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']

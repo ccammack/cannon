@@ -59,7 +59,7 @@ const PageTemplate = `
 			}
 		</style>
 		<script>
-			const htmlhash = "{{.htmlhash}}";
+			let htmlhash = "{{.htmlhash}}";
 			window.onload = function(e) {
 				// replace placeholder media address with document.location.href
 				const container = document.getElementById("container");
@@ -68,7 +68,7 @@ const PageTemplate = `
 					container.innerHTML = inner;
 				}
 
-				// generate server /status address from document.location.href
+				// poll server /status using address from document.location.href
 				const statusurl = document.location.href + "status";
 				setTimeout(function status() {
 					// ask the server for updates and reload if needed
@@ -76,10 +76,23 @@ const PageTemplate = `
 					.then((response) => response.json())
 					.then((data) => {
 						if (htmlhash != data.htmlhash) {
-							location.reload()
-						} else {
-							setTimeout(status, {{.interval}});
+							if (data.html.includes("<video") || data.html.includes("<audio")) {
+								// to ensure proper cleanup, reload the page if the incoming element is a video or audio
+								location.reload()
+							} else {
+								// otherwise, just replace the content for faster response
+								htmlhash = data.htmlhash
+								document.title = data.title
+
+								// replace placeholder media address with document.location.href
+								const container = document.getElementById("container");
+								if (container) {
+									const inner = data.html.replace("{document.location.href}", document.location.href);
+									container.innerHTML = inner;
+								}
+							}
 						}
+						setTimeout(status, {{.interval}});
 					})
 					.catch(err => {
 						// Failed to load resource: net::ERR_CONNECTION_REFUSED
@@ -205,32 +218,53 @@ func getMimeType(file string) string {
 	return ""
 }
 
-func matchConfigRules(file string) (string, string, []string, string) {
+func isBinaryFile(file string) ([]byte, bool) {
+	// treat the file as binary if it contains a NUL anywhere in the first 4k
+	fp, err := os.Open(file)
+	if err != nil {
+		panic(err)
+	}
+	fs, err := fp.Stat()
+	if err != nil {
+		panic(err)
+	}
+	b := make([]byte, util.Min(4096, fs.Size()))
+	n, err := fp.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	for i := 0; i < n; i++ {
+		if b[i] == '\x00' {
+			return b, true
+		}
+	}
+	return b, false
+}
+
+func matchConfigRules(file string) (string, string, []string, string, bool) {
 	extension := strings.TrimLeft(path.Ext(file), ".")
 	mimetype := getMimeType(file)
 
 	cfg := config.GetConfig()
 	rules := cfg.FileConversionRules
 	for _, rule := range rules {
-		if len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
+		if len(extension) > 0 && len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
 			match := fmt.Sprintf("ext: %v", rule.Ext)
 			if len(match) > 80 {
 				match = match[:util.Min(len(match), 80)] + "...]"
 			}
 			platform, command := config.GetPlatformCommand(rule.Command)
-			return match, platform, command, rule.Tag
-		} else if len(rule.Mime) > 0 && util.Find(rule.Mime, mimetype) < len(rule.Mime) {
+			return match, platform, command, rule.Tag, true
+		} else if len(mimetype) > 0 && len(rule.Mime) > 0 && util.Find(rule.Mime, mimetype) < len(rule.Mime) {
 			match := fmt.Sprintf("mime: %v", rule.Mime)
 			if len(match) > 80 {
 				match = match[:util.Min(len(match), 80)] + "...]"
 			}
 			platform, command := config.GetPlatformCommand(rule.Command)
-			return match, platform, command, rule.Tag
+			return match, platform, command, rule.Tag, true
 		}
 	}
-
-	// no match found
-	return "", "", []string{}, ""
+	return "", "", []string{}, "", false
 }
 
 func copy(input string, output string) {
@@ -274,40 +308,47 @@ func convertFile(input string, hash string, output string) {
 	}
 
 	// find the first matching configuration rule
-	match, platform, command, tag := matchConfigRules(input)
+	match, platform, command, tag, found := matchConfigRules(input)
+	if !found {
+		// no matching command found, so display the first part of the raw file
+		bytes, _ := isBinaryFile(input)
+		resource.html = "<pre>" + string(bytes) + "\n\n[...]" + "</pre>"
+		resource.htmlHash = makeHash(resource.html)
+		resource.ready = true
+	} else {
+		if len(command) > 0 {
+			// run the matching command and wait for it to complete
+			resource.combinedOutput += fmt.Sprintf("  Match: %v\n", match)
+			resource.combinedOutput += fmt.Sprintf("Command: %v %v\n", platform, command)
+			cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
+			resource.combinedOutput += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
+			out, err := exec.Command(cmd, args...).CombinedOutput()
+			resource.combinedOutput += string(out)
+			if err != nil {
+				// if the conversion fails, serve the combined stdout & stderror text from the console
+				resource.html = "<pre>" + resource.combinedOutput + "</pre>"
+				resource.htmlHash = makeHash(resource.html)
+				resource.ready = true
+			} else {
+				// if the rule creates an output file with extension, copy it over the one without
+				largest := getLargestFile(output + "*")
+				if largest != output {
+					copy(largest, output)
+				}
 
-	// run the matching command and wait for it to complete
-	if len(command) > 0 {
-		resource.combinedOutput += fmt.Sprintf("  Match: %v\n", match)
-		resource.combinedOutput += fmt.Sprintf("Command: %v %v\n", platform, command)
-		cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
-		resource.combinedOutput += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
-		out, err := exec.Command(cmd, args...).CombinedOutput()
-		resource.combinedOutput += string(out)
-		if err != nil {
-			// if the conversion fails, serve the combined stdout & stderror text from the console
-			resource.html = "<pre>" + resource.combinedOutput + "</pre>"
-			resource.htmlHash = makeHash(resource.html)
-			resource.ready = true
-		} else {
-			// if the rule creates an output file with extension, copy it over the one without
-			largest := getLargestFile(output + "*")
-			if largest != output {
-				copy(largest, output)
+				// if the file conversion succeeds, serve the converted output file
+				resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
+				resource.htmlHash = makeHash(resource.html)
+				resource.ready = true
 			}
+		} else {
+			// if the rule doesn't contain a command, copy the input file into the temp folder and serve the copy
+			copy(input, output)
 
-			// if the file conversion succeeds, serve the converted output file
 			resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
 			resource.htmlHash = makeHash(resource.html)
 			resource.ready = true
 		}
-	} else {
-		// if the rule doesn't contain a command, copy the input file into the temp folder and serve the copy
-		copy(input, output)
-
-		resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
-		resource.htmlHash = makeHash(resource.html)
-		resource.ready = true
 	}
 
 	// update the resource
