@@ -67,6 +67,10 @@ file_conversion_rules:
       windows: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
     tag: <img src='{src}'>
 
+  - # raw text files do not need conversion
+    mime: [text]
+    tag: <iframe src='{src}'>
+
   - # use ffmpeg to sample the first keyframe of non-native video files
     mime: [video]
     command:
