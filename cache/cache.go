@@ -219,20 +219,14 @@ func init() {
 }
 
 func GetMimeType(file string) string {
-	types := []string{"application/", "audio/", "example/", "font/", "image/", "inode/", "model/", "text/", "video/", "message/", "multipart/"}
 	cfg := config.GetConfig()
 	_, command := config.GetPlatformCommand(cfg.Settings.Mime)
 	if len(command) > 0 {
 		cmd, args := util.FormatCommand(command, map[string]string{"{file}": file})
-		out, err := exec.Command(cmd, args...).CombinedOutput()
-		if err == nil {
-			t := strings.TrimSuffix(string(out), "\n")
-			if util.Find(types, t) < len(types) {
-				return t
-			}
-		}
+		out, _ := exec.Command(cmd, args...).CombinedOutput()
+		return string(out)
 	}
-	return "error: cannot read mime-type"
+	return ""
 }
 
 func isBinaryFile(file string) ([]byte, bool) {
