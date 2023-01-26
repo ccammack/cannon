@@ -1,8 +1,3 @@
-/*
-Copyright © 2022 Chris Cammack <chris@ccammack.com>
-
-*/
-
 package cache
 
 import (

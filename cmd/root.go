@@ -1,7 +1,3 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
@@ -68,7 +64,7 @@ in a web browser using a static http server.`,
 				defer resp.Body.Close()
 			}
 
-			// TODO: write file info and mime type to stdout for display in the right pane
+			// write mime type to stdout for display in the right pane
 			fmt.Println(cache.GetMimeType(file))
 
 			// lf requires a non-zero return value to disable caching

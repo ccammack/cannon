@@ -1,11 +1,4 @@
-/*
-Copyright © 2022 Chris Cammack <chris@ccammack.com>
-
-*/
-
 package server
-
-// https://gist.github.com/rgl/0351b6d9362abb32d6b55f86bd17ab65
 
 import (
 	"cannon/cache"
