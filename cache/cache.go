@@ -218,7 +218,7 @@ func init() {
 	config.RegisterCallback(reloadCallback)
 }
 
-func getMimeType(file string) string {
+func GetMimeType(file string) string {
 	cfg := config.GetConfig()
 	_, command := config.GetPlatformCommand(cfg.Settings.Mime)
 	if len(command) > 0 {
@@ -256,7 +256,7 @@ func isBinaryFile(file string) ([]byte, bool) {
 
 func matchConfigRules(file string) (string, string, []string, string, bool) {
 	extension := strings.TrimLeft(path.Ext(file), ".")
-	mimetype := getMimeType(file)
+	mimetype := GetMimeType(file)
 
 	cfg := config.GetConfig()
 	rules := cfg.FileConversionRules

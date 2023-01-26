@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"cannon/cache"
 	"cannon/config"
 	"cannon/server"
 	"encoding/json"
@@ -50,26 +51,25 @@ in a web browser using a static http server.`,
 		} else if *status {
 			server.Status()
 		} else if len(args) > 0 {
-			// send file path argument to /update endpoint
-			port := config.GetConfig().Settings.Port
-			url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
-			postBody, _ := json.Marshal(map[string]string{
-				"file": args[0],
-			})
-			responseBody := bytes.NewBuffer(postBody)
-			resp, err := http.Post(url, "application/json", responseBody)
-			if err != nil {
-				log.Fatalf("An Error Occured %v", err)
-			}
-			defer resp.Body.Close()
+			file := args[0]
 
-			// Read the response body
-			//  body, err := ioutil.ReadAll(resp.Body)
-			//  if err != nil {
-			// 	log.Fatalln(err)
-			//  }
-			//  sb := string(body)
-			//  log.Printf(sb)
+			if _, running := server.ServerIsRunnning(); running {
+				// send file path argument to /update endpoint
+				port := config.GetConfig().Settings.Port
+				url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
+				postBody, _ := json.Marshal(map[string]string{
+					"file": file,
+				})
+				responseBody := bytes.NewBuffer(postBody)
+				resp, err := http.Post(url, "application/json", responseBody)
+				if err != nil {
+					log.Fatalf("An Error Occured %v", err)
+				}
+				defer resp.Body.Close()
+			}
+
+			// TODO: write file info and mime type to stdout for display in the right pane
+			fmt.Println(cache.GetMimeType(file))
 
 			// lf requires a non-zero return value to disable caching
 			exit := config.GetConfig().Settings.Exit

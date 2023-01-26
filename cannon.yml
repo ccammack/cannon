@@ -27,7 +27,7 @@ settings:
     windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{file}']
 
   # cannon will set this exit value at the command line: $ cannon <file>
-  #     lf requires a non-zero return value to prevent it from trying to cache the file itself
+  #     lf requires a non-zero return value to prevent it from trying to cache the preview
   exit: 255
 
 file_conversion_rules:

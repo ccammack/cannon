@@ -24,7 +24,7 @@ var (
 	server *http.Server
 )
 
-func serverIsRunnning() (int, bool) {
+func ServerIsRunnning() (int, bool) {
 	// read config
 	port := config.GetConfig().Settings.Port
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
@@ -56,7 +56,7 @@ func Start() {
 	go startBrowser()
 
 	// start the server if the port is not in use
-	if port, running := serverIsRunnning(); !running {
+	if port, running := ServerIsRunnning(); !running {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", pageHandler)
 		mux.HandleFunc("/status", statusHandler)
@@ -74,7 +74,7 @@ func Start() {
 
 func Stop() {
 	// stop the server if the port is already in use
-	if port, running := serverIsRunnning(); running {
+	if port, running := ServerIsRunnning(); running {
 		url := fmt.Sprintf("http://localhost:%v/%s", port, "stop")
 		resp, err := http.Get(url)
 		if err != nil {
@@ -85,7 +85,7 @@ func Stop() {
 
 func Toggle() {
 	// stop the server if the port is in use; start it otherwise
-	if _, running := serverIsRunnning(); running {
+	if _, running := ServerIsRunnning(); running {
 		Stop()
 	} else {
 		Start()
@@ -94,7 +94,7 @@ func Toggle() {
 
 func Page() {
 	// display the current page HTML for testing
-	if _, running := serverIsRunnning(); running {
+	if _, running := ServerIsRunnning(); running {
 		cache.Page(nil)
 	} else {
 		fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
@@ -103,7 +103,7 @@ func Page() {
 
 func Status() {
 	// display the server status for testing
-	if _, running := serverIsRunnning(); running {
+	if _, running := ServerIsRunnning(); running {
 		cache.Status(nil)
 	} else {
 		fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
