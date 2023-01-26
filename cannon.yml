@@ -11,7 +11,7 @@ settings:
   #     specify the appropriate argument for the browser to enable auto-play for media previews
   #     on Windows, it may be required to specify the full path to the command
   browser:
-    default: ['chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
+    default: ['google-chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
     windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
 
   # browser polling time in milliseconds

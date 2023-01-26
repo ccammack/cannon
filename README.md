@@ -1,10 +1,14 @@
+# Name
+
+Cannon file previewer
+
 # Introduction
 
 Cannon is a brute-force browser-based file previewer for terminal file managers like [lf](https://github.com/gokcehan/lf).
 
-Its primary advantage over options like [Pistol](https://github.com/doronbehar/pistol) is that it runs on older versions of Windows. It also runs on Linux and should work elsewhere if properly configured.
+Its primary advantage over more elegant options like [Pistol](https://github.com/doronbehar/pistol) is that it runs on older versions of Windows. It also runs on Linux and should work elsewhere if properly configured.
 
-Cannon follows the rules defined in its configuration to sample and convert each selected file into its web equivalent and then serves the converted file to the browser from an internal web server.
+Cannon follows the rules defined in its configuration to sample and convert each selected file into its web equivalent and then serves the converted file to the localhost browser from an internal web server.
 
 ![Rube Goldberg's Self-Operating Napkin](Rube_Goldberg's__Self-Operating_Napkin__(cropped).gif "Image source: Wikimedia Commons")
 
@@ -14,11 +18,11 @@ Downloading and installing Cannon requires both [git](https://git-scm.com/) and 
 
 Assuming that you have [git](https://community.chocolatey.org/packages?q=git) and [go](https://community.chocolatey.org/packages?q=go) installed, download and build Cannon.
 
-	git https://github.com/ccammack/cannon.git
+	git clone https://github.com/ccammack/cannon.git
 	cd cannon
 	go install .
 
-Next, copy the configuration file (cannon.yaml) into the proper [XDG-specified](https://github.com/adrg/xdg) location:
+Next, copy the configuration file (cannon.yaml) into the proper [XDG standard](https://github.com/adrg/xdg) location:
 
 * On Windows, the configuration file should be copied to one of these locations:
   * C:\\Users\\USERNAME\\.config\\cannon\\cannon.yaml
@@ -28,6 +32,9 @@ Next, copy the configuration file (cannon.yaml) into the proper [XDG-specified](
   * ~/.config/cannon/cannon.yaml
 
 The default configuration also relies on [muPDF](https://community.chocolatey.org/packages?q=mupdf) and [ffmpeg](https://community.chocolatey.org/packages?q=ffmpeg) for file conversion, so install them too.
+On Ubuntu, the required muPDF package is mupdf-tools.
+
+	$ sudo apt install mupdf-tools
 
 By default, MIME detection is accomplished on Linux using the built-in *file* command and on Windows using the version of *file* that ships with *git* for Windows.
 
@@ -35,18 +42,26 @@ By default, MIME detection is accomplished on Linux using the built-in *file* co
 
 Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires that one set the previewer and also map a key to toggle the server on and off.
 
-In my case, I changed the configuration file *C:\\Users\\ccammack\\AppData\\Local\\lf\\lfrc* to set the *previewer* to Cannon and *map* the **T** key to start and stop the server.
+On Windows, change the configuration file *C:\\Users\\USERNAME\\AppData\\Local\\lf\\lfrc* to set the *previewer* to Cannon and *map* the **T** key to start and stop the server.
 Specifying full paths usually works better on Windows.
 
 	# map the [T] key to toggle the preview server and set the custom file previewer
-	map T push &C:/Users/ccammack/go/bin/cannon.exe<space>--toggle<enter>
-	set previewer "C:/Users/ccammack/go/bin/cannon.exe"
+	map T push &C:/Users/USERNAME/go/bin/cannon.exe<space>--toggle<enter>
+	set previewer "C:/Users/USERNAME/go/bin/cannon.exe"
+
+On Ubuntu, change the configuration file *~/.config/lf/lfrc* in a similar fashion.
+
+	# map the [T] key to toggle the preview server and set the custom file previewer
+	map T $(~/go/bin/cannon --toggle &)
+	set previewer ~/go/bin/cannon
 
 Integrating other file managers should follow a similar pattern.
 
 # Running
 
 Start *lf* as usual and then press **T** to open the preview browser. Browse the file system using *lf* and file previews should appear in the browser window.
+
+![Cannon preview](cannon-preview.png "Cannon preview")
 
 # Configuration
 
@@ -63,7 +78,7 @@ Browsers usually disable autoplay by default, so set the appropriate option to r
 The *{url}* parameter is required.
 
 	browser:
-		default: ['chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
+		default: ['google-chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
 		windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
 
 Specify the *file* command for your platform to perform MIME type detection:
@@ -105,3 +120,22 @@ The *{output}* parameter may specify an extension.
 		tag: <audio autoplay loop controls src='{src}'>
 
 If none of the conversion rules match, Cannon will display the first 4K bytes of the file.
+
+# Command line
+
+The command line parameters are mostly used for testing.
+
+Start, stop and toggle the server:
+
+	cannon --start
+	cannon --stop
+	cannon --toggle
+
+Get server status and current page:
+
+	cannon --status
+	cannon --page
+
+Preview a file:
+
+	cannon /full/path/to/file
