@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -113,4 +114,16 @@ func Dirname() (string, error) {
 		return "", err
 	}
 	return filepath.Dir(filename), nil
+}
+
+func CopyFile(input string, output string) {
+	// copy input file contents to output file
+	data, err := ioutil.ReadFile(input)
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile(output, data, 0644)
+	if err != nil {
+		panic(err)
+	}
 }

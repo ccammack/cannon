@@ -273,37 +273,18 @@ func matchConfigRules(file string) (string, string, []string, string, bool) {
 	return "", "", []string{}, "", false
 }
 
-func copy(input string, output string) {
-	// copy input file contents to output file
-	data, err := ioutil.ReadFile(input)
+func getFileWithExtension(file string) string {
+	// find the file matching pattern with the longest name
+	matches, err := filepath.Glob(file + ".*")
 	if err != nil {
 		panic(err)
 	}
-	err = ioutil.WriteFile(output, data, 0644)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func getLargestFile(pattern string) string {
-	// find the file matching pattern with the largest size
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		panic(err)
-	}
-	largest := ""
-	size := int64(0)
 	for _, match := range matches {
-		fi, err := os.Stat(match)
-		if err != nil {
-			panic(err)
-		}
-		if fi.Size() > size {
-			largest = match
-			size = fi.Size()
+		if len(match) > len(file) {
+			file = match
 		}
 	}
-	return largest
+	return file
 }
 
 func convertFile(input string, hash string, output string) {
@@ -336,12 +317,6 @@ func convertFile(input string, hash string, output string) {
 				resource.htmlHash = makeHash(resource.html)
 				resource.ready = true
 			} else {
-				// if the rule creates an output file with extension, copy it over the one without
-				largest := getLargestFile(output + "*")
-				if largest != output {
-					copy(largest, output)
-				}
-
 				// if the file conversion succeeds, serve the converted output file
 				resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
 				resource.htmlHash = makeHash(resource.html)
@@ -523,7 +498,13 @@ func File(w *http.ResponseWriter, r *http.Request) {
 	if !ok {
 		panic("Resource lookup failed in cache.go!")
 	}
-	http.ServeFile(*w, r, resource.outputName)
+
+	// if a conversion rule ran to produce an output file with an extension, serve it rather than the original placeholder
+	file := resource.outputName
+	if resource.outputName != resource.inputName {
+		file = getFileWithExtension(file)
+	}
+	http.ServeFile(*w, r, file)
 }
 
 func Status(w *http.ResponseWriter) {

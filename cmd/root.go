@@ -73,7 +73,7 @@ in a web browser using a static http server.`,
 						}
 						defer resp.Body.Close()
 					} else {
-						fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
+						// fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
 					}
 				}
 			}
