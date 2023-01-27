@@ -60,6 +60,13 @@ file_conversion_rules:
     ext: [html, htm]
     tag: <iframe src='{src}'>
 
+  - # use image magick to convert non-native image formats
+    mime: [image]
+    command:
+      default: ['convert', '{input}', '{output}.jpg']
+      windows: ['magick', 'convert', '{input}', '{output}.jpg']
+    tag: <img src='{src}'>
+
   - # use mupdf to sample the first page of common document formats
     ext: [pdf, xps, cbz, epub, fb2]
     command:
@@ -67,14 +74,14 @@ file_conversion_rules:
       windows: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
     tag: <img src='{src}'>
 
-  - # use ffmpeg to sample the first keyframe of non-native video files
+  - # use ffmpeg to sample the first keyframe of non-native video format
     mime: [video]
     command:
       default: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
       windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
     tag: <img src='{src}'>
 
-  - # use ffmpeg to sample the first few seconds of non-native audio files
+  - # use ffmpeg to sample the first few seconds of non-native audio formats
     mime: [audio]
     command:
       default: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']

@@ -1,7 +1,3 @@
-# Name
-
-Cannon file previewer
-
 # Introduction
 
 Cannon is a brute-force browser-based file previewer for terminal file managers like [lf](https://github.com/gokcehan/lf).
@@ -31,10 +27,13 @@ Next, copy the configuration file (cannon.yaml) into the proper [XDG standard](h
 * On Linux and other systems, the configuration file should be copied to:
   * ~/.config/cannon/cannon.yaml
 
-The default configuration also relies on [muPDF](https://community.chocolatey.org/packages?q=mupdf) and [ffmpeg](https://community.chocolatey.org/packages?q=ffmpeg) for file conversion, so install them too.
+The default configuration relies on [muPDF](https://community.chocolatey.org/packages?q=mupdf),
+[ImageMagick](https://community.chocolatey.org/packages?q=imagemagick) and
+[ffmpeg](https://community.chocolatey.org/packages?q=ffmpeg) for file conversion, so install them too.
+
 On Ubuntu, the required muPDF package is mupdf-tools.
 
-	$ sudo apt install mupdf-tools
+	$ sudo apt install mupdf-tools ffmpeg imagemagick
 
 By default, MIME detection is accomplished on Linux using the built-in *file* command and on Windows using the version of *file* that ships with *git* for Windows.
 
@@ -136,6 +135,6 @@ Get server status and current page:
 	cannon --status
 	cannon --page
 
-Preview a file:
+Preview a file on the running server:
 
 	cannon /full/path/to/file

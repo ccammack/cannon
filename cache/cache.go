@@ -137,6 +137,9 @@ const PageTemplate = `
 </html>
 `
 
+// max display length for unknown file types
+const byteLength = 4096
+
 type Resource struct {
 	ready          bool
 	inputName      string
@@ -241,7 +244,7 @@ func GetMimeType(file string) string {
 }
 
 func isBinaryFile(file string) ([]byte, int, bool) {
-	// treat the file as binary if it contains a NUL anywhere in the first 4k
+	// treat the file as binary if it contains a NUL anywhere in the first byteLength bytes
 	fp, err := os.Open(file)
 	if err != nil {
 		panic(err)
@@ -250,7 +253,7 @@ func isBinaryFile(file string) ([]byte, int, bool) {
 	if err != nil {
 		panic(err)
 	}
-	b := make([]byte, util.Min(4096, fs.Size()))
+	b := make([]byte, util.Min(byteLength, fs.Size()))
 	n, err := fp.Read(b)
 	if err != nil {
 		panic(err)
@@ -307,7 +310,7 @@ func emitRawFileElement(file string) string {
 	bytes, size, _ := isBinaryFile(file)
 	s := string(bytes)
 	html := "<xmp>" + s + "\n\n"
-	if size > len(s) {
+	if size > byteLength {
 		html += "[...]"
 	}
 	html += "</xmp>"
@@ -315,24 +318,29 @@ func emitRawFileElement(file string) string {
 }
 
 func emitRawStringElement(raw string) string {
-	bytes, size := raw[0:4095], len(raw)
+	size := len(raw)
+	bytes := raw[0:util.Min(size, byteLength)]
 	s := string(bytes)
 	html := "<xmp>" + s + "\n\n"
-	if size > len(bytes) {
+	if size > byteLength {
 		html += "[...]"
 	}
 	html += "</xmp>"
 	return html
 }
 
-func runAndWait(input string, output string, match string, platform string, command []string) (string, error) {
+func runAndWait(input string, output string, match string, platform string, command []string) (string, int, error) {
 	cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
 	out, err := exec.Command(cmd, args...).CombinedOutput()
+	exit := 0
+	if exitError, ok := err.(*exec.ExitError); ok {
+		exit = exitError.ExitCode()
+	}
 	combined := fmt.Sprintf("  Match: %v\n", match)
 	combined += fmt.Sprintf("Command: %v %v\n", platform, command)
 	combined += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
 	combined += string(out)
-	return combined, err
+	return combined, exit, err
 }
 
 func convertFile(input string, hash string, output string) {
@@ -353,7 +361,7 @@ func convertFile(input string, hash string, output string) {
 		if len(command) == 0 {
 			// if the rule doesn't provide a command, serve the original input file
 			if len(tag) == 0 {
-				// the rule doesn't provide a tag, display the first part of the raw file
+				// if the rule doesn't provide a tag, display the first part of the raw file
 				resource.html = emitRawFileElement(input)
 				resource.htmlHash = makeHash(resource.html)
 				resource.ready = true
@@ -366,18 +374,19 @@ func convertFile(input string, hash string, output string) {
 			}
 		} else {
 			// run the matching command and wait for it to complete
-			combined, err := runAndWait(input, output, match, platform, command)
+			combined, exit, err := runAndWait(input, output, match, platform, command)
 			resource.combinedOutput = combined
-			if err != nil {
+			if exit != 0 || err != nil {
 				// if the conversion fails, serve the combined stdout+err text from the console
 				resource.html = emitRawStringElement(resource.combinedOutput)
 				resource.htmlHash = makeHash(resource.html)
 				resource.ready = true
 			} else {
-				if len(output) == 0 {
+				hasOutputPlaceholder := util.Find(command, "{output}") < len(command)
+				if !hasOutputPlaceholder {
 					// if the rule ran but did not provide an {output}, serve the combined stdout+err
 					if len(tag) == 0 {
-						// the rule doesn't provide a tag, display the first part of the raw file
+						// if the rule doesn't provide a tag, display the first part of the raw file
 						resource.html = emitRawStringElement(resource.combinedOutput)
 						resource.htmlHash = makeHash(resource.html)
 						resource.ready = true
@@ -391,8 +400,8 @@ func convertFile(input string, hash string, output string) {
 				} else {
 					// if the rule provided an {output}
 					if len(tag) == 0 {
-						// the rule doesn't provide a tag, display the first part of the raw file
-						resource.html = emitRawFileElement(output)
+						// if the rule doesn't provide a tag, display the first part of the raw file
+						resource.html = emitRawFileElement(getFileWithExtension(output))
 						resource.htmlHash = makeHash(resource.html)
 						resource.ready = true
 					} else {
