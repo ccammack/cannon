@@ -348,9 +348,8 @@ func convertFile(input string, hash string, output string) {
 				resource.ready = true
 			}
 		} else {
-			// if the rule doesn't contain a command, copy the input file into the temp folder and serve the copy
-			copy(input, output)
-
+			// if the rule doesn't contain a command, serve the original input file
+			resource.outputName = resource.inputName
 			resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
 			resource.htmlHash = makeHash(resource.html)
 			resource.ready = true
