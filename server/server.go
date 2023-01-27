@@ -54,7 +54,6 @@ func Start() {
 		mux.HandleFunc("/", pageHandler)
 		mux.HandleFunc("/status", statusHandler)
 		mux.HandleFunc("/update", updateHandler)
-		mux.HandleFunc("/file", fileHandler)
 		mux.HandleFunc("/stop", stopHandler)
 
 		server = &http.Server{
@@ -104,8 +103,13 @@ func Status() {
 }
 
 func pageHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /
-	cache.Page(&w)
+	if r.URL.Path == "/" {
+		// handle route /
+		cache.Page(&w)
+	} else {
+		// handle route /<hash>
+		cache.File(&w, r)
+	}
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
@@ -116,11 +120,6 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 func updateHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /update
 	cache.Update(&w, r)
-}
-
-func fileHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /update
-	cache.File(&w, r)
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {

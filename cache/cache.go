@@ -21,6 +21,22 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+const SpinnerTemplate = `
+	<svg version="1.1" id="spinner" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+		viewBox="0 0 100 100" enable-background="new 0 0 0 0" xml:space="preserve">
+		<path fill="#888" d="M73,50c0-12.7-10.3-23-23-23S27,37.3,27,50 M30.9,50c0-10.5,8.5-19.1,19.1-19.1S69.1,39.5,69.1,50">
+			<animateTransform
+				attributeName="transform"
+				attributeType="XML"
+				type="rotate"
+				dur="1s"
+				from="0 50 50"
+				to="360 50 50"
+				repeatCount="indefinite" />
+		</path>
+	</svg>
+`
+
 const PageTemplate = `
 <!DOCTYPE html>
 <html lang="en">
@@ -219,7 +235,7 @@ func GetMimeType(file string) string {
 	if len(command) > 0 {
 		cmd, args := util.FormatCommand(command, map[string]string{"{file}": file})
 		out, _ := exec.Command(cmd, args...).CombinedOutput()
-		return string(out)
+		return strings.TrimSuffix(string(out), "\n")
 	}
 	return ""
 }
@@ -275,7 +291,7 @@ func matchConfigRules(file string) (string, string, []string, string, bool) {
 
 func getFileWithExtension(file string) string {
 	// find the file matching pattern with the longest name
-	matches, err := filepath.Glob(file + ".*")
+	matches, err := filepath.Glob(file + "*")
 	if err != nil {
 		panic(err)
 	}
@@ -318,14 +334,14 @@ func convertFile(input string, hash string, output string) {
 				resource.ready = true
 			} else {
 				// if the file conversion succeeds, serve the converted output file
-				resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
+				resource.html = strings.Replace(tag, "{src}", "{document.location.href}"+hash, 1)
 				resource.htmlHash = makeHash(resource.html)
 				resource.ready = true
 			}
 		} else {
 			// if the rule doesn't contain a command, serve the original input file
 			resource.outputName = resource.inputName
-			resource.html = strings.Replace(tag, "{src}", "{document.location.href}file?hash="+hash, 1)
+			resource.html = strings.Replace(tag, "{src}", "{document.location.href}"+hash, 1)
 			resource.htmlHash = makeHash(resource.html)
 			resource.ready = true
 		}
@@ -414,25 +430,10 @@ func getCurrentResourceData() map[string]template.HTML {
 	} else {
 		if !resource.ready {
 			// serve a spinner until ready is true - https://codepen.io/nikhil8krishnan/pen/rVoXJa
-			html := `
-				<svg version="1.1" id="spinner" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-					viewBox="0 0 100 100" enable-background="new 0 0 0 0" xml:space="preserve">
-					<path fill="#888" d="M73,50c0-12.7-10.3-23-23-23S27,37.3,27,50 M30.9,50c0-10.5,8.5-19.1,19.1-19.1S69.1,39.5,69.1,50">
-						<animateTransform
-							attributeName="transform"
-							attributeType="XML"
-							type="rotate"
-							dur="1s"
-							from="0 50 50"
-							to="360 50 50"
-							repeatCount="indefinite" />
-					</path>
-				</svg>
-			`
 			maps.Copy(data, map[string]template.HTML{
 				"title":    template.HTML(filepath.Base(resource.inputName)),
-				"html":     template.HTML(html),
-				"htmlhash": template.HTML(makeHash(html)),
+				"html":     template.HTML(SpinnerTemplate),
+				"htmlhash": template.HTML(makeHash(SpinnerTemplate)),
 			})
 		} else {
 			// serve the converted output file (or error text on failure)
@@ -493,7 +494,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 
 func File(w *http.ResponseWriter, r *http.Request) {
 	// serve the requested file by hash
-	hash := r.URL.Query().Get("hash")
+	hash := r.URL.Path[1:]
 	resource, ok := getResource(hash)
 	if !ok {
 		panic("Resource lookup failed in cache.go!")
