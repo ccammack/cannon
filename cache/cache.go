@@ -240,7 +240,7 @@ func GetMimeType(file string) string {
 	return ""
 }
 
-func isBinaryFile(file string) ([]byte, bool) {
+func isBinaryFile(file string) ([]byte, int, bool) {
 	// treat the file as binary if it contains a NUL anywhere in the first 4k
 	fp, err := os.Open(file)
 	if err != nil {
@@ -257,10 +257,10 @@ func isBinaryFile(file string) ([]byte, bool) {
 	}
 	for i := 0; i < n; i++ {
 		if b[i] == '\x00' {
-			return b, true
+			return b, int(fs.Size()), true
 		}
 	}
-	return b, false
+	return b, int(fs.Size()), false
 }
 
 func matchConfigRules(file string) (string, string, []string, string, bool) {
@@ -303,6 +303,38 @@ func getFileWithExtension(file string) string {
 	return file
 }
 
+func emitRawFileElement(file string) string {
+	bytes, size, _ := isBinaryFile(file)
+	s := string(bytes)
+	html := "<xmp>" + s + "\n\n"
+	if size > len(s) {
+		html += "[...]"
+	}
+	html += "</xmp>"
+	return html
+}
+
+func emitRawStringElement(raw string) string {
+	bytes, size := raw[0:4095], len(raw)
+	s := string(bytes)
+	html := "<xmp>" + s + "\n\n"
+	if size > len(bytes) {
+		html += "[...]"
+	}
+	html += "</xmp>"
+	return html
+}
+
+func runAndWait(input string, output string, match string, platform string, command []string) (string, error) {
+	cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
+	out, err := exec.Command(cmd, args...).CombinedOutput()
+	combined := fmt.Sprintf("  Match: %v\n", match)
+	combined += fmt.Sprintf("Command: %v %v\n", platform, command)
+	combined += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
+	combined += string(out)
+	return combined, err
+}
+
 func convertFile(input string, hash string, output string) {
 	// run conversion rules on the input file to produce output
 	resource, ok := getResource(hash)
@@ -313,37 +345,64 @@ func convertFile(input string, hash string, output string) {
 	// find the first matching configuration rule
 	match, platform, command, tag, found := matchConfigRules(input)
 	if !found {
-		// no matching command found, so display the first part of the raw file
-		bytes, _ := isBinaryFile(input)
-		resource.html = "<pre>" + string(bytes) + "\n\n[...]" + "</pre>"
+		// no matching rule found, so display the first part of the raw file
+		resource.html = emitRawFileElement(input)
 		resource.htmlHash = makeHash(resource.html)
 		resource.ready = true
 	} else {
-		if len(command) > 0 {
-			// run the matching command and wait for it to complete
-			resource.combinedOutput += fmt.Sprintf("  Match: %v\n", match)
-			resource.combinedOutput += fmt.Sprintf("Command: %v %v\n", platform, command)
-			cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
-			resource.combinedOutput += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
-			out, err := exec.Command(cmd, args...).CombinedOutput()
-			resource.combinedOutput += string(out)
-			if err != nil {
-				// if the conversion fails, serve the combined stdout & stderror text from the console
-				resource.html = "<pre>" + resource.combinedOutput + "</pre>"
+		if len(command) == 0 {
+			// if the rule doesn't provide a command, serve the original input file
+			if len(tag) == 0 {
+				// the rule doesn't provide a tag, display the first part of the raw file
+				resource.html = emitRawFileElement(input)
 				resource.htmlHash = makeHash(resource.html)
 				resource.ready = true
 			} else {
-				// if the file conversion succeeds, serve the converted output file
+				// otherwise, use the provided tag
+				resource.outputName = resource.inputName
 				resource.html = strings.Replace(tag, "{src}", "{document.location.href}"+hash, 1)
 				resource.htmlHash = makeHash(resource.html)
 				resource.ready = true
 			}
 		} else {
-			// if the rule doesn't contain a command, serve the original input file
-			resource.outputName = resource.inputName
-			resource.html = strings.Replace(tag, "{src}", "{document.location.href}"+hash, 1)
-			resource.htmlHash = makeHash(resource.html)
-			resource.ready = true
+			// run the matching command and wait for it to complete
+			combined, err := runAndWait(input, output, match, platform, command)
+			resource.combinedOutput = combined
+			if err != nil {
+				// if the conversion fails, serve the combined stdout+err text from the console
+				resource.html = emitRawStringElement(resource.combinedOutput)
+				resource.htmlHash = makeHash(resource.html)
+				resource.ready = true
+			} else {
+				if len(output) == 0 {
+					// if the rule ran but did not provide an {output}, serve the combined stdout+err
+					if len(tag) == 0 {
+						// the rule doesn't provide a tag, display the first part of the raw file
+						resource.html = emitRawStringElement(resource.combinedOutput)
+						resource.htmlHash = makeHash(resource.html)
+						resource.ready = true
+					} else {
+						// otherwise, use the provided tag
+						resource.outputName = resource.inputName
+						resource.html = strings.Replace(tag, "{src}", resource.combinedOutput, 1)
+						resource.htmlHash = makeHash(resource.html)
+						resource.ready = true
+					}
+				} else {
+					// if the rule provided an {output}
+					if len(tag) == 0 {
+						// the rule doesn't provide a tag, display the first part of the raw file
+						resource.html = emitRawFileElement(output)
+						resource.htmlHash = makeHash(resource.html)
+						resource.ready = true
+					} else {
+						// if the file conversion succeeds, serve the converted output file
+						resource.html = strings.Replace(tag, "{src}", "{document.location.href}"+hash, 1)
+						resource.htmlHash = makeHash(resource.html)
+						resource.ready = true
+					}
+				}
+			}
 		}
 	}
 
@@ -494,13 +553,15 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 
 func File(w *http.ResponseWriter, r *http.Request) {
 	// serve the requested file by hash
-	hash := r.URL.Path[1:]
+	path := strings.ReplaceAll(r.URL.Path, "{document.location.href}", "")
+	hash := strings.ReplaceAll(path, "/", "")
 	resource, ok := getResource(hash)
 	if !ok {
-		panic("Resource lookup failed in cache.go!")
+		// resource is not ready yet
+		http.ServeFile(*w, r, "")
 	}
 
-	// if a conversion rule ran to produce an output file with an extension, serve it rather than the original placeholder
+	// serve the output file with extension if it exists rather than the original placeholder temp file
 	file := resource.outputName
 	if resource.outputName != resource.inputName {
 		file = getFileWithExtension(file)
