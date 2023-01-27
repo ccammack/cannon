@@ -7,9 +7,9 @@ import (
 	"cannon/server"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -47,25 +47,36 @@ in a web browser using a static http server.`,
 		} else if *status {
 			server.Status()
 		} else if len(args) > 0 {
-			file := args[0]
-
-			if _, running := server.ServerIsRunnning(); running {
-				// send file path argument to /update endpoint
-				port := config.GetConfig().Settings.Port
-				url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
-				postBody, _ := json.Marshal(map[string]string{
-					"file": file,
-				})
-				responseBody := bytes.NewBuffer(postBody)
-				resp, err := http.Post(url, "application/json", responseBody)
+			path, err := filepath.Abs(args[0])
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fp, err := os.Open(path)
+				defer fp.Close()
 				if err != nil {
-					log.Fatalf("An Error Occured %v", err)
-				}
-				defer resp.Body.Close()
-			}
+					fmt.Println(err)
+				} else {
+					// write mime type to stdout for display in the right pane
+					fmt.Println(cache.GetMimeType(path))
 
-			// write mime type to stdout for display in the right pane
-			fmt.Println(cache.GetMimeType(file))
+					// send file path argument to /update endpoint
+					if _, running := server.ServerIsRunnning(); running {
+						port := config.GetConfig().Settings.Port
+						url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
+						postBody, _ := json.Marshal(map[string]string{
+							"file": path,
+						})
+						responseBody := bytes.NewBuffer(postBody)
+						resp, err := http.Post(url, "application/json", responseBody)
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer resp.Body.Close()
+					} else {
+						fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
+					}
+				}
+			}
 
 			// lf requires a non-zero return value to disable caching
 			exit := config.GetConfig().Settings.Exit
