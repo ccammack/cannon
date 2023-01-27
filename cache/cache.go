@@ -267,8 +267,8 @@ func isBinaryFile(file string) ([]byte, int, bool) {
 }
 
 func matchConfigRules(file string) (string, string, []string, string, bool) {
-	extension := strings.TrimLeft(path.Ext(file), ".")
-	mimetype := GetMimeType(file)
+	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
+	mimetype := strings.ToLower(GetMimeType(file))
 
 	cfg := config.GetConfig()
 	rules := cfg.FileConversionRules
