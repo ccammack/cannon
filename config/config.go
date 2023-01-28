@@ -112,15 +112,13 @@ func init() {
 	}
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		// reload and notify subscribers
-		if err := loadConfig(); err != nil {
-			panic(err)
-		}
+		err := loadConfig()
+		util.CheckPanic(err)
 		for _, callback := range callbacks {
 			callback("reload")
 		}
 	})
 	viper.WatchConfig()
-	if err := loadConfig(); err != nil {
-		panic(err)
-	}
+	err = loadConfig()
+	util.CheckPanic(err)
 }

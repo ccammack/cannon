@@ -23,15 +23,10 @@ var (
 
 func Append(text string) {
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		panic(err)
-	}
-
+	CheckPanic(err)
 	defer f.Close()
-
-	if _, err = f.WriteString(text + "\n"); err != nil {
-		panic(err)
-	}
+	_, err = f.WriteString(text + "\n")
+	CheckPanic(err)
 }
 
 func RespondJson(w *http.ResponseWriter, jsonMap map[string]template.HTML) {
@@ -119,10 +114,12 @@ func Dirname() (string, error) {
 func CopyFile(input string, output string) {
 	// copy input file contents to output file
 	data, err := ioutil.ReadFile(input)
-	if err != nil {
-		panic(err)
-	}
+	CheckPanic(err)
 	err = ioutil.WriteFile(output, data, 0644)
+	CheckPanic(err)
+}
+
+func CheckPanic(err error) {
 	if err != nil {
 		panic(err)
 	}

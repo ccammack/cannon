@@ -39,9 +39,8 @@ func startBrowser() {
 	_, browser := config.GetPlatformCommand(cfg.Settings.Browser)
 	command, args := util.FormatCommand(browser, map[string]string{"{url}": url})
 	cmd := exec.Command(command, args...)
-	if err := cmd.Start(); err != nil {
-		panic(err)
-	}
+	err := cmd.Start()
+	util.CheckPanic(err)
 }
 
 func Start() {

@@ -198,18 +198,14 @@ func createPreviewFile() string {
 	defer resources.lock.Unlock()
 	if len(resources.tempDir) == 0 {
 		dir, err := ioutil.TempDir("", "cannon")
-		if err != nil {
-			panic(err)
-		}
+		util.CheckPanic(err)
 		resources.tempDir = dir
 	}
 
 	// create a temp file to hold the output preview file
 	fp, err := ioutil.TempFile(resources.tempDir, "preview")
 	defer fp.Close()
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 	return fp.Name()
 }
 
@@ -246,18 +242,12 @@ func GetMimeType(file string) string {
 func isBinaryFile(file string) ([]byte, int, bool) {
 	// treat the file as binary if it contains a NUL anywhere in the first byteLength bytes
 	fp, err := os.Open(file)
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 	fs, err := fp.Stat()
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 	b := make([]byte, util.Min(byteLength, fs.Size()))
 	n, err := fp.Read(b)
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 	for i := 0; i < n; i++ {
 		if b[i] == '\x00' {
 			return b, int(fs.Size()), true
@@ -295,9 +285,7 @@ func matchConfigRules(file string) (string, string, []string, string, bool) {
 func getFileWithExtension(file string) string {
 	// find the file matching pattern with the longest name
 	matches, err := filepath.Glob(file + "*")
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 	for _, match := range matches {
 		if len(match) > len(file) {
 			file = match
@@ -451,9 +439,7 @@ func precacheNearbyFiles(file string) {
 
 	// precache the files around the "current" one
 	files, err := ioutil.ReadDir(filepath.Dir(file))
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 	sorted := []string{}
 	for _, file := range files {
 		if !file.IsDir() {
@@ -522,9 +508,7 @@ func Page(w *http.ResponseWriter) {
 
 	// generate page from template
 	t, err := template.New("page").Parse(PageTemplate)
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 
 	// respond with current page html
 	if w != nil {
@@ -540,9 +524,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	// extract params from the request body
 	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
-	if err != nil {
-		panic(err)
-	}
+	util.CheckPanic(err)
 
 	// set the current file to display
 	file := params["file"]
