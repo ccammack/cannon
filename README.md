@@ -37,6 +37,8 @@ On Ubuntu, the required muPDF package is mupdf-tools.
 
 By default, MIME detection is accomplished on Linux using the built-in *file* command and on Windows using the version of *file* that ships with *git* for Windows.
 
+Also, the default configuration relies on Google Chrome for previews. Modify the configuration as explained below to use another browser.
+
 # Integration
 
 Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires that one set the previewer and also map a key to toggle the server on and off.
@@ -80,7 +82,7 @@ The *{url}* parameter is required.
 		default: ['google-chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
 		windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
 
-Specify the *file* command for your platform to perform MIME type detection:
+Specify the *mime* command for your platform to perform MIME type detection:
 The *{file}* parameter is required.
 
 	mime:
@@ -98,9 +100,9 @@ The *file_conversion_rules* in the configuration are processed in order from top
 Each rule attempts to match the file against a list of file extensions and MIME types.
 
 When a match is found, Cannon will run the associated *command* to produce an output file and then serve the file using the specified HTML *tag*.
-If a rule does not specify a command, Cannon will just serve a temporary copy of the original file.
+If a rule does not specify a command, Cannon will just serve the original file.
 
-For example, *mp3* and *wav* files can be served directly using the *audio tag* without running a conversion command.
+For example, *mp3* and *wav* files can be served directly using the `<audio>` tag without running a conversion.
 The *{src}* parameter is required for each *tag* definition.
 
 	- # native html5 audio formats do not need conversion
@@ -108,7 +110,7 @@ The *{src}* parameter is required for each *tag* definition.
 		tag: <audio autoplay loop controls src='{src}'>
 
 All other audio files require sampling and conversion using *ffmpeg* to create a short audio preview.
-The *{input}* and *{output}* parameters are required for each conversion command.
+The *{input}* and *{output}* parameters are required for this conversion.
 The *{output}* parameter may specify an extension.
 
 	- # use ffmpeg to sample the first few seconds of non-native audio files
@@ -119,6 +121,10 @@ The *{output}* parameter may specify an extension.
 		tag: <audio autoplay loop controls src='{src}'>
 
 If none of the conversion rules match, Cannon will display the first 4K bytes of the file.
+If a conversion *command* is not provided, Cannon will serve the input file.
+If the conversion *command* does not specify an *{output}* parameter or gives an error when run,
+Cannon will serve the combined *stdout+stderr* created by the conversion *command*.
+If a *tag* parameter is not provided, Cannon will display the output inside `<xmp>` tags.
 
 # Command line
 
@@ -130,11 +136,11 @@ Start, stop and toggle the server:
 	cannon --stop
 	cannon --toggle
 
-Get server status and current page:
+Get server status and the current HTML page:
 
 	cannon --status
 	cannon --page
 
 Preview a file on the running server:
 
-	cannon /full/path/to/file
+	cannon <file>
