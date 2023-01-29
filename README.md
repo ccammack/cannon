@@ -60,7 +60,9 @@ Integrating other file managers should follow a similar pattern.
 
 # Running
 
-Start *lf* as usual and then press **T** to open the preview browser. Browse the file system using *lf* and file previews should appear in the browser window.
+Start *lf* as usual and then press **T** to open the preview browser.
+Browse the file system using *lf* and file previews should appear in the browser window.
+Press **T** again to close the preview browser.
 
 ![Cannon preview](cannon-preview.png "Cannon preview")
 
