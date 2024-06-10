@@ -74,16 +74,27 @@ file_conversion_rules:
       windows: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
     tag: <img src='{src}'>
 
-  - # use ffmpeg to sample the first keyframe of non-native video format
+  - # use ffmpeg to sample the first keyframe of non-native video files
     mime: [video]
     command:
       default: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
       windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
     tag: <img src='{src}'>
 
-  - # use ffmpeg to sample the first few seconds of non-native audio formats
+  - # use ffmpeg to sample the first few seconds of non-native audio files
     mime: [audio]
     command:
       default: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
       windows: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
     tag: <audio autoplay loop controls src='{src}'>
+
+#  - # display bookmark files in an iframe
+#    ext: [url]
+#    command:
+#      default: ['sed', '-n', 's/^URL=//p', '{input}']
+#      windows: ['Powershell', '-Command', '&{(Get-Content "{input}") -match "URL=" -replace "URL=",""}']
+#    tag: <iframe src='{stdout}'>
+
+  - # raw text files do not need conversion
+    mime: [text]
+    tag: <iframe src='{src}'>
