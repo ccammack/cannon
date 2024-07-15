@@ -6,7 +6,7 @@ Its primary advantage over more elegant options like [Pistol](https://github.com
 
 Cannon follows the rules defined in its configuration to sample and convert each selected file into its web equivalent and then serves the converted file to the localhost browser from an internal web server.
 
-![Rube Goldberg's Self-Operating Napkin](Rube_Goldberg's__Self-Operating_Napkin__(cropped).gif "Image source: Wikimedia Commons")
+![Professor Butts and the Self-Operating Napkin (1931)](Self-Operating_Napkin.gif "Image source: Wikimedia Commons")
 
 # Installation
 
