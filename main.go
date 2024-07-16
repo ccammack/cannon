@@ -1,11 +1,12 @@
 package main
 
 import (
-	"cannon/cache"
-	"cannon/cmd"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/ccammack/cannon/cache"
+	"github.com/ccammack/cannon/cmd"
 )
 
 func main() {

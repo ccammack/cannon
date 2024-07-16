@@ -1,11 +1,12 @@
 package config
 
 import (
-	"cannon/util"
 	"reflect"
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/ccammack/cannon/util"
 
 	"github.com/adrg/xdg"
 	"github.com/fsnotify/fsnotify"

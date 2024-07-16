@@ -1,8 +1,6 @@
 package cache
 
 import (
-	"cannon/config"
-	"cannon/util"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/ccammack/cannon/config"
+	"github.com/ccammack/cannon/util"
 
 	"golang.org/x/exp/maps"
 )

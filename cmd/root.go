@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"bytes"
-	"cannon/cache"
-	"cannon/config"
-	"cannon/server"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/ccammack/cannon/cache"
+	"github.com/ccammack/cannon/config"
+	"github.com/ccammack/cannon/server"
 
 	"github.com/spf13/cobra"
 )

@@ -1,9 +1,6 @@
 package server
 
 import (
-	"cannon/cache"
-	"cannon/config"
-	"cannon/util"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +8,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+
+	"github.com/ccammack/cannon/cache"
+	"github.com/ccammack/cannon/config"
+	"github.com/ccammack/cannon/util"
 )
 
 var (
