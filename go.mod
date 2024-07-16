@@ -1,4 +1,4 @@
-module cannon
+module github.com/ccammack/cannon
 
 go 1.18
 
