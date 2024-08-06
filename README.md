@@ -10,7 +10,6 @@ Installing Cannon requires a recent version of [Go](https://go.dev/).
 
 ```
 go install -v github.com/ccammack/cannon@e5df1174d1838baccc984382d11a53a644ce4b6d
-which cannon
 ```
 
 After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/cannon.yml) to the appropriate location.
@@ -39,10 +38,13 @@ browser:
   windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
 ```
 
-Run `cannon` to start the server and open the browser, then give it a native HTML media file to display, such as [Rube Goldberg's Self-Operating Napkin (1931)](Self-Operating_Napkin.gif "Image source: Wikimedia Commons").
+Run `cannon --start` in one console to start the server and open the browser, then open a second console and give it a native HTML media file to display, such as [Rube Goldberg's Self-Operating Napkin (1931)](Self-Operating_Napkin.gif "Image source: Wikimedia Commons").
 
 ```
 cannon --start
+```
+
+```
 cannon Self-Operating_Napkin.gif
 cannon --stop
 ```
