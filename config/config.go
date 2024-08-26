@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log"
 	"os"
 	"runtime"
@@ -24,43 +25,49 @@ func platform() string { return strings.ToLower(runtime.GOOS) }
 
 func hostname() string {
 	hostname, err := os.Hostname()
-	util.CheckPanic(err)
+	util.CheckPanic2(err, "error reading hostname")
 	return strings.ToLower(hostname)
 }
 
-func key(key string) (string, bool) {
+func key(key string) (string, error) {
 	hostKey := "host." + hostname() + "." + key
 	if config.Exists(hostKey) {
-		return hostKey, true
+		return hostKey, nil
 	}
 	osKey := "os." + platform() + "." + key
 	if config.Exists(osKey) {
-		return osKey, true
+		return osKey, nil
 	}
 	if config.Exists(key) {
-		return key, true
+		return key, nil
 	}
-	return "", false
+	return "", errors.New(key)
 }
 
-func requiredKey(s string) string {
-	key, ok := key(s)
-	if !ok {
-		log.Printf("error finding required key: %v", key)
-	}
-	return key
-}
-
-func requiredInt(key string) int {
+func requiredInt(s string) int {
 	configLock.RLock()
 	defer configLock.RUnlock()
-	return config.Int(requiredKey(key))
+	key, err := key(s)
+	util.CheckPanic2(err, "error finding required key")
+	return config.Int(key)
 }
 
-func requiredStrings(key string) []string {
+func requiredStrings(s string) []string {
 	configLock.RLock()
 	defer configLock.RUnlock()
-	return config.Strings(requiredKey(key))
+	key, err := key(s)
+	util.CheckPanic2(err, "error finding required key")
+	return config.Strings(key)
+}
+
+func optionalString(s string) string {
+	configLock.RLock()
+	defer configLock.RUnlock()
+	key, err := key(s)
+	if err != nil {
+		return ""
+	}
+	return config.String(key)
 }
 
 func Port() int         { return requiredInt("port") }
@@ -73,12 +80,29 @@ func RegisterCallback(callback func(string)) {
 	callbacks = append(callbacks, callback)
 }
 
+func afterLoad() {
+	// redirect log output to logfile if defined
+	fname := optionalString("logfile")
+	if fname != "" {
+		file, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+		if err != nil {
+			log.Printf("error setting logfile: %v", err)
+		} else {
+			log.SetOutput(file)
+		}
+	}
+}
+
 func init() {
 	// load config file
 	f := file.Provider(xdg.ConfigHome + "/cannon/cannon.toml")
-	if err := config.Load(f, toml.Parser()); err != nil {
-		log.Fatalf("error loading config: %v", err)
-	}
+	err := config.Load(f, toml.Parser())
+	util.CheckPanic2(err, "error loading config")
+
+	afterLoad()
+
+	log.Println("This is a log message")
+	log.Fatal("This is a fatal message")
 
 	// watch for config file changes and reload
 	f.Watch(func(event interface{}, err error) {
@@ -98,6 +122,8 @@ func init() {
 		configLock.Lock()
 		config = tmp
 		configLock.Unlock()
+
+		afterLoad()
 
 		// notify subscribers
 		for _, callback := range callbacks {

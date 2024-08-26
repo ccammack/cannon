@@ -124,3 +124,9 @@ func CheckPanic(err error) {
 		panic(err)
 	}
 }
+
+func CheckPanic2(err error, message string) {
+	if err != nil {
+		log.Panicf("%s: %v", message, err)
+	}
+}
