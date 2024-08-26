@@ -62,7 +62,7 @@ in a web browser using a static http server.`,
 
 					// send file path argument to /update endpoint
 					if _, running := server.ServerIsRunnning(); running {
-						port := config.GetConfig().Settings.Port
+						port := config.Port()
 						url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
 						postBody, _ := json.Marshal(map[string]string{
 							"file": path,
@@ -80,7 +80,7 @@ in a web browser using a static http server.`,
 			}
 
 			// lf requires a non-zero return value to disable caching
-			exit := config.GetConfig().Settings.Exit
+			exit := config.Exit()
 			os.Exit(exit)
 		}
 	},

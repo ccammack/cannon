@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -230,8 +229,7 @@ func init() {
 }
 
 func GetMimeType(file string) string {
-	cfg := config.GetConfig()
-	_, command := config.GetPlatformCommand(cfg.Settings.Mime)
+	command := config.Mime()
 	if len(command) > 0 {
 		cmd, args := util.FormatCommand(command, map[string]string{"{file}": file})
 		out, _ := exec.Command(cmd, args...).CombinedOutput()
@@ -258,28 +256,28 @@ func isBinaryFile(file string) ([]byte, int, bool) {
 }
 
 func matchConfigRules(file string) (string, string, []string, string, bool) {
-	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
-	mimetype := strings.ToLower(GetMimeType(file))
+	// extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
+	// mimetype := strings.ToLower(GetMimeType(file))
 
-	cfg := config.GetConfig()
-	rules := cfg.FileConversionRules
-	for _, rule := range rules {
-		if len(extension) > 0 && len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
-			match := fmt.Sprintf("ext: %v", rule.Ext)
-			if len(match) > 80 {
-				match = match[:util.Min(len(match), 80)] + "...]"
-			}
-			platform, command := config.GetPlatformCommand(rule.Command)
-			return match, platform, command, rule.Tag, true
-		} else if len(mimetype) > 0 && len(rule.Mime) > 0 && util.Find(rule.Mime, mimetype) < len(rule.Mime) {
-			match := fmt.Sprintf("mime: %v", rule.Mime)
-			if len(match) > 80 {
-				match = match[:util.Min(len(match), 80)] + "...]"
-			}
-			platform, command := config.GetPlatformCommand(rule.Command)
-			return match, platform, command, rule.Tag, true
-		}
-	}
+	// cfg := config.GetConfig()
+	// rules := cfg.FileConversionRules
+	// for _, rule := range rules {
+	// 	if len(extension) > 0 && len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
+	// 		match := fmt.Sprintf("ext: %v", rule.Ext)
+	// 		if len(match) > 80 {
+	// 			match = match[:util.Min(len(match), 80)] + "...]"
+	// 		}
+	// 		platform, command := config.GetPlatformCommand(rule.Command)
+	// 		return match, platform, command, rule.Tag, true
+	// 	} else if len(mimetype) > 0 && len(rule.Mime) > 0 && util.Find(rule.Mime, mimetype) < len(rule.Mime) {
+	// 		match := fmt.Sprintf("mime: %v", rule.Mime)
+	// 		if len(match) > 80 {
+	// 			match = match[:util.Min(len(match), 80)] + "...]"
+	// 		}
+	// 		platform, command := config.GetPlatformCommand(rule.Command)
+	// 		return match, platform, command, rule.Tag, true
+	// 	}
+	// }
 	return "", "", []string{}, "", false
 }
 
@@ -469,7 +467,7 @@ func getCurrentResourceData() map[string]template.HTML {
 
 	// set default values
 	data := map[string]template.HTML{
-		"interval": template.HTML(strconv.Itoa(config.GetConfig().Settings.Interval)),
+		"interval": template.HTML(strconv.Itoa(config.Interval())),
 	}
 
 	// look up the current resource if it exists
