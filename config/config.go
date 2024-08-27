@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"runtime"
@@ -11,7 +12,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/ccammack/cannon/util"
-	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 )
@@ -133,11 +134,13 @@ func afterLoad() {
 
 func init() {
 	// load config file
-	f := file.Provider(xdg.ConfigHome + "/cannon/cannon.toml")
-	err := config.Load(f, toml.Parser())
+	f := file.Provider(xdg.ConfigHome + "/cannon/cannon.toml.yml")
+	err := config.Load(f, yaml.Parser())
 	util.CheckPanic(err, "error loading config")
 
 	afterLoad()
+
+	fmt.Printf("%v\n", Rules())
 
 	// watch for config file changes and reload
 	f.Watch(func(event interface{}, err error) {
@@ -148,7 +151,7 @@ func init() {
 
 		// reload config file
 		tmp := koanf.New(".")
-		if err := tmp.Load(f, toml.Parser()); err != nil {
+		if err := tmp.Load(f, yaml.Parser()); err != nil {
 			log.Printf("error loading config: %v", err)
 			return
 		}
