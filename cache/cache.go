@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -198,14 +199,14 @@ func createPreviewFile() string {
 	defer resources.lock.Unlock()
 	if len(resources.tempDir) == 0 {
 		dir, err := ioutil.TempDir("", "cannon")
-		util.CheckPanic(err)
+		util.CheckPanicOld(err)
 		resources.tempDir = dir
 	}
 
 	// create a temp file to hold the output preview file
 	fp, err := ioutil.TempFile(resources.tempDir, "preview")
+	util.CheckPanicOld(err)
 	defer fp.Close()
-	util.CheckPanic(err)
 	return fp.Name()
 }
 
@@ -241,12 +242,12 @@ func GetMimeType(file string) string {
 func isBinaryFile(file string) ([]byte, int, bool) {
 	// treat the file as binary if it contains a NUL anywhere in the first byteLength bytes
 	fp, err := os.Open(file)
-	util.CheckPanic(err)
+	util.CheckPanicOld(err)
 	fs, err := fp.Stat()
-	util.CheckPanic(err)
+	util.CheckPanicOld(err)
 	b := make([]byte, util.Min(byteLength, fs.Size()))
 	n, err := fp.Read(b)
-	util.CheckPanic(err)
+	util.CheckPanicOld(err)
 	for i := 0; i < n; i++ {
 		if b[i] == '\x00' {
 			return b, int(fs.Size()), true
@@ -255,36 +256,35 @@ func isBinaryFile(file string) ([]byte, int, bool) {
 	return b, int(fs.Size()), false
 }
 
-func matchConfigRules(file string) (string, string, []string, string, bool) {
-	// extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
-	// mimetype := strings.ToLower(GetMimeType(file))
+func matchConfigRules(file string) (string, []string, string, bool) {
+	// TODO: this should return an array of matches and so the caller can run all of them until something succeeds
 
-	// cfg := config.GetConfig()
-	// rules := cfg.FileConversionRules
-	// for _, rule := range rules {
-	// 	if len(extension) > 0 && len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
-	// 		match := fmt.Sprintf("ext: %v", rule.Ext)
-	// 		if len(match) > 80 {
-	// 			match = match[:util.Min(len(match), 80)] + "...]"
-	// 		}
-	// 		platform, command := config.GetPlatformCommand(rule.Command)
-	// 		return match, platform, command, rule.Tag, true
-	// 	} else if len(mimetype) > 0 && len(rule.Mime) > 0 && util.Find(rule.Mime, mimetype) < len(rule.Mime) {
-	// 		match := fmt.Sprintf("mime: %v", rule.Mime)
-	// 		if len(match) > 80 {
-	// 			match = match[:util.Min(len(match), 80)] + "...]"
-	// 		}
-	// 		platform, command := config.GetPlatformCommand(rule.Command)
-	// 		return match, platform, command, rule.Tag, true
-	// 	}
-	// }
-	return "", "", []string{}, "", false
+	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
+	mimetype := strings.ToLower(GetMimeType(file))
+	rules := config.Rules()
+
+	for _, rule := range rules {
+		match := ""
+		if len(extension) > 0 && len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
+			match = fmt.Sprintf("ext: %v", rule.Ext)
+		} else if len(mimetype) > 0 && len(rule.Mim) > 0 && util.Find(rule.Mim, mimetype) < len(rule.Mim) {
+			match = fmt.Sprintf("mime: %v", rule.Mim)
+		}
+		if len(match) > 80 {
+			match = match[:util.Min(len(match), 80)] + "...]"
+		}
+		if match != "" {
+			return match, rule.Cmd, rule.Tag, true
+		}
+	}
+
+	return "", []string{}, "", false
 }
 
 func getFileWithExtension(file string) string {
 	// find the file matching pattern with the longest name
 	matches, err := filepath.Glob(file + "*")
-	util.CheckPanic(err)
+	util.CheckPanicOld(err)
 	for _, match := range matches {
 		if len(match) > len(file) {
 			file = match
@@ -316,7 +316,7 @@ func emitRawStringElement(raw string) string {
 	return html
 }
 
-func runAndWait(input string, output string, match string, platform string, command []string) (string, int, error) {
+func runAndWait(input string, output string, match string, command []string) (string, int, error) {
 	cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
 	out, err := exec.Command(cmd, args...).CombinedOutput()
 	exit := 0
@@ -324,7 +324,7 @@ func runAndWait(input string, output string, match string, platform string, comm
 		exit = exitError.ExitCode()
 	}
 	combined := fmt.Sprintf("  Match: %v\n", match)
-	combined += fmt.Sprintf("Command: %v %v\n", platform, command)
+	combined += fmt.Sprintf("Command: %v\n", command)
 	combined += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
 	combined += string(out)
 	return combined, exit, err
@@ -338,7 +338,7 @@ func convertFile(input string, hash string, output string) {
 	}
 
 	// find the first matching configuration rule
-	match, platform, command, tag, found := matchConfigRules(input)
+	match, command, tag, found := matchConfigRules(input)
 	if !found {
 		// no matching rule found, so display the first part of the raw file
 		resource.html = emitRawFileElement(input)
@@ -361,7 +361,7 @@ func convertFile(input string, hash string, output string) {
 			}
 		} else {
 			// run the matching command and wait for it to complete
-			combined, exit, err := runAndWait(input, output, match, platform, command)
+			combined, exit, err := runAndWait(input, output, match, command)
 			resource.combinedOutput = combined
 			if exit != 0 || err != nil {
 				// if the conversion fails, serve the combined stdout+err text from the console
@@ -438,7 +438,7 @@ func precacheNearbyFiles(file string) {
 
 	// precache the files around the "current" one
 	files, err := ioutil.ReadDir(filepath.Dir(file))
-	util.CheckPanic(err)
+	util.CheckPanicOld(err)
 	sorted := []string{}
 	for _, file := range files {
 		if !file.IsDir() {
@@ -507,7 +507,7 @@ func Page(w *http.ResponseWriter) {
 
 	// generate page from template
 	t, err := template.New("page").Parse(PageTemplate)
-	util.CheckPanic(err)
+	util.CheckPanicOld(err)
 
 	// respond with current page html
 	if w != nil {
@@ -523,7 +523,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	// extract params from the request body
 	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
-	util.CheckPanic(err)
+	util.CheckPanicOld(err)
 
 	// set the current file to display
 	file := params["file"]

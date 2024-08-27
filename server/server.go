@@ -40,7 +40,7 @@ func startBrowser() {
 		cmd, args := util.FormatCommand(command, map[string]string{"{url}": url})
 		proc := exec.Command(cmd, args...)
 		err := proc.Start()
-		util.CheckPanic(err)
+		util.CheckPanicOld(err)
 	}
 }
 

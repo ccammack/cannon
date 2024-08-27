@@ -2,10 +2,10 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 
@@ -26,7 +26,7 @@ func platform() string { return strings.ToLower(runtime.GOOS) }
 
 func hostname() string {
 	hostname, err := os.Hostname()
-	util.CheckPanic2(err, "error reading hostname")
+	util.CheckPanic(err, "error reading hostname")
 	return strings.ToLower(hostname)
 }
 
@@ -47,24 +47,18 @@ func key(key string, ko *koanf.Koanf) (string, error) {
 }
 
 func requiredInt(s string, ko *koanf.Koanf) int {
-	// configLock.RLock()
-	// defer configLock.RUnlock()
 	key, err := key(s, ko)
-	util.CheckPanic2(err, "error finding required key")
+	util.CheckPanic(err, "error finding required key")
 	return ko.Int(key)
 }
 
 func requiredStrings(s string, ko *koanf.Koanf) []string {
-	// configLock.RLock()
-	// defer configLock.RUnlock()
 	key, err := key(s, ko)
-	util.CheckPanic2(err, "error finding required key")
+	util.CheckPanic(err, "error finding required key")
 	return ko.Strings(key)
 }
 
 func optionalString(s string, ko *koanf.Koanf) string {
-	// configLock.RLock()
-	// defer configLock.RUnlock()
 	key, err := key(s, ko)
 	if err != nil {
 		return ""
@@ -73,8 +67,6 @@ func optionalString(s string, ko *koanf.Koanf) string {
 }
 
 func optionalStrings(s string, ko *koanf.Koanf) []string {
-	// configLock.RLock()
-	// defer configLock.RUnlock()
 	key, err := key(s, ko)
 	if err != nil {
 		return nil
@@ -82,31 +74,22 @@ func optionalStrings(s string, ko *koanf.Koanf) []string {
 	return ko.Strings(key)
 }
 
-// func optionalInterface(s string) interface{} {
-// 	// configLock.RLock()
-// 	// defer configLock.RUnlock()
-// 	key, err := key(s)
-// 	if err != nil {
-// 		return nil
-// 	}
-// 	return config.Get(key)
-// }
-
 func Port() int         { return requiredInt("port", config) }
 func Interval() int     { return requiredInt("interval", config) }
 func Exit() int         { return requiredInt("exit", config) }
 func Mime() []string    { return requiredStrings("mime", config) }
 func Browser() []string { return requiredStrings("browser", config) }
 
-type FileConversionRules []struct {
-	Ext     []string
-	Mime    []string
-	Deps    []string
-	Command []string
-	Tag     string
+type FileConversionRule struct {
+	Ext []string
+	Mim []string
+	Dep []string
+	Msg string
+	Cmd []string
+	Tag string
 }
 
-func Rules() interface{} {
+func Rules() []FileConversionRule {
 	// find the highest priority rule set prefix
 	prefix, err := key("rules", config)
 	if err != nil {
@@ -116,38 +99,19 @@ func Rules() interface{} {
 	configLock.RLock()
 	defer configLock.RUnlock()
 
-	// iface := config.Get(prefix)
-	// entries := iface.([]interface{})
-	// fmt.Printf("%s: type: %v, length: %d, value: %v\n", prefix, reflect.TypeOf(iface), len(entries), iface)
-
-	slices := config.Slices(prefix)
-	fmt.Printf("%v\n", slices)
-
-	for _, v := range slices {
-		ext := optionalStrings("ext", v)
-		mim := optionalStrings("mim", v)
-		dep := optionalStrings("dep", v)
-		msg := optionalStrings("msg", v)
-		cmd := optionalStrings("cmd", v)
-		tag := optionalString("tag", v)
-		fmt.Printf("%v %v %v %v %v %s\n", ext, mim, dep, msg, cmd, tag)
+	rules := []FileConversionRule{}
+	for _, v := range config.Slices(prefix) {
+		ext := slices.Clone(optionalStrings("ext", v))
+		mim := slices.Clone(optionalStrings("mim", v))
+		dep := slices.Clone(optionalStrings("dep", v))
+		msg := strings.Clone(optionalString("msg", v))
+		cmd := slices.Clone(optionalStrings("cmd", v))
+		tag := strings.Clone(optionalString("tag", v))
+		rule := FileConversionRule{ext, mim, dep, msg, cmd, tag}
+		rules = append(rules, rule)
 	}
 
-	// tmp := koanf.New(".")
-	// err := tmp.Load(iface, toml.Parser())
-
-	// iterate the rule interface here
-	// for i := 0; i != len(entries); i++ {
-	// 	ith := strconv.Itoa(i)
-	// 	ext := optionalStrings(prefix + ith + ".ext")
-	// 	mime := optionalStrings(prefix + ith + ".mime")
-	// 	deps := optionalStrings(prefix + ith + ".deps")
-	// 	cmd := optionalStrings(prefix + ith + ".cmd")
-	// 	tag := optionalString(prefix + ith + ".tag")
-	// 	fmt.Printf("%v %v %v %v %s\n", ext, mime, deps, cmd, tag)
-	// }
-
-	return nil
+	return rules
 }
 
 func RegisterCallback(callback func(string)) {
@@ -171,14 +135,9 @@ func init() {
 	// load config file
 	f := file.Provider(xdg.ConfigHome + "/cannon/cannon.toml")
 	err := config.Load(f, toml.Parser())
-	util.CheckPanic2(err, "error loading config")
+	util.CheckPanic(err, "error loading config")
 
 	afterLoad()
-
-	// log.Println("This is a log message")
-	// log.Fatal("This is a fatal message")
-
-	Rules()
 
 	// watch for config file changes and reload
 	f.Watch(func(event interface{}, err error) {
