@@ -65,6 +65,9 @@ func Start() {
 
 	// start the server if the port is not in use
 	if port, running := ServerIsRunnning(); !running {
+		url := fmt.Sprintf("http://localhost:%v", port)
+		log.Printf("starting server: %s", url)
+
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", pageHandler)
 		mux.HandleFunc("/status", statusHandler)
@@ -162,6 +165,7 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		if err := server.Shutdown(context.Background()); err != nil {
+			log.Panicf("error stopping server: %v", err)
 		}
 	}()
 }
