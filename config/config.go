@@ -20,6 +20,7 @@ import (
 var (
 	config     = koanf.New(".")
 	configLock = new(sync.RWMutex)
+	configPath = xdg.ConfigHome + "/cannon/cannon.yml"
 	callbacks  []func(string)
 )
 
@@ -211,7 +212,7 @@ func postLoad() {
 
 func init() {
 	// load config file
-	file := file.Provider(xdg.ConfigHome + "/cannon/cannon.yml")
+	file := file.Provider(configPath)
 	err := config.Load(file, yaml.Parser())
 	if err != nil {
 		log.Panicf("error loading config: %v", err)
