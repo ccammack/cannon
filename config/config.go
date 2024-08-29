@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -71,7 +72,12 @@ func requiredInt(s string, ko *koanf.Koanf) gen.Pair {
 	if err != nil {
 		log.Panicf("error finding required key: %v", err)
 	}
-	return gen.Pair{K: key, V: ko.Int(key)}
+	s = ko.String(key)
+	_, err = strconv.Atoi(s)
+	if err != nil {
+		log.Panicf("error converting required value to integer: %v", err)
+	}
+	return gen.Pair{K: key, V: s}
 }
 
 func requiredStrings(s string, ko *koanf.Koanf) gen.Pair {
@@ -160,8 +166,7 @@ func optionalExe(path string) error {
 
 func postLoad() {
 	// redirect log output to logfile if defined
-	logp := optionalString("logfile", config)
-	logk, logv := logp.Key(), logp.String()
+	logk, logv := optionalString("logfile", config).String()
 	if logv != "" {
 		file, err := os.OpenFile(logv, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
@@ -176,23 +181,20 @@ func postLoad() {
 	Interval()
 
 	// make sure configured executables exist
-	mimep := Mime()
-	mime := mimep.Strings()[0]
+	_, mime := Mime().Strings()
 	if len(mime) != 0 {
-		requiredExe(mime)
+		requiredExe(mime[0])
 	}
-	browserp := Browser()
-	browser := browserp.Strings()[0]
+	_, browser := Browser().Strings()
 	if len(browser) != 0 {
-		requiredExe(browser)
+		requiredExe(browser[0])
 	}
 
 	// validate the specified conversion rules
 	rulesk, rulesv := Rules()
 	for idx, rule := range rulesv {
 		usage := false
-		depsp := rule.Dep
-		depsk, depsv := depsp.Key(), depsp.Strings()
+		depsk, depsv := rule.Dep.Strings()
 		for _, dep := range depsv {
 			err := optionalExe(dep)
 			if err != nil {
@@ -201,7 +203,8 @@ func postLoad() {
 			}
 		}
 		if usage {
-			log.Printf("%s", rule.Msg.String())
+			_, msg := rule.Msg.String()
+			log.Printf("%s", msg)
 		}
 	}
 }

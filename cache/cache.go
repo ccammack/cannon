@@ -229,8 +229,7 @@ func init() {
 }
 
 func GetMimeType(file string) string {
-	mime := config.Mime()
-	command := mime.Strings()
+	_, command := config.Mime().Strings()
 	if len(command) > 0 {
 		cmd, args := util.FormatCommand(command, map[string]string{"{file}": file})
 		out, _ := exec.Command(cmd, args...).CombinedOutput()
@@ -265,10 +264,8 @@ func matchConfigRules(file string) (string, []string, string, bool) {
 
 	for _, rule := range rules {
 		match := ""
-		extp := rule.Ext
-		exts := extp.Strings()
-		mimp := rule.Mim
-		mims := mimp.Strings()
+		_, exts := rule.Ext.Strings()
+		_, mims := rule.Mim.Strings()
 		if len(extension) > 0 && len(exts) > 0 && util.Find(exts, extension) < len(exts) {
 			match = fmt.Sprintf("ext: %v", exts)
 		} else if len(mimetype) > 0 && len(mims) > 0 && util.Find(mims, mimetype) < len(mims) {
@@ -278,10 +275,8 @@ func matchConfigRules(file string) (string, []string, string, bool) {
 			match = match[:util.Min(len(match), 80)] + "...]"
 		}
 		if match != "" {
-			cmdp := rule.Cmd
-			cmds := cmdp.Strings()
-			tagp := rule.Tag
-			tag := tagp.String()
+			_, cmds := rule.Cmd.Strings()
+			_, tag := rule.Tag.String()
 			return match, cmds, tag, true
 		}
 	}
@@ -474,8 +469,7 @@ func getCurrentResourceData() map[string]template.HTML {
 	// return the current resource for display
 
 	// set default values
-	intervalp := config.Interval()
-	interval := intervalp.String()
+	_, interval := config.Interval().String()
 
 	data := map[string]template.HTML{
 		"interval": template.HTML(interval),

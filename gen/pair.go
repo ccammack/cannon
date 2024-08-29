@@ -2,6 +2,7 @@ package gen
 
 import (
 	"math"
+	"strconv"
 )
 
 type Pair struct {
@@ -9,30 +10,32 @@ type Pair struct {
 	V interface{}
 }
 
-func (p *Pair) Key() string {
-	return p.K
-}
+// func (p Pair) Key() string {
+// 	return p.K
+// }
 
-func (p *Pair) Int() int {
+func (p Pair) Int() (string, int) {
 	if i, ok := p.V.(int); ok {
-		return i
+		return p.K, i
+	} else if s, ok := p.V.(string); ok {
+		i, err := strconv.Atoi(s)
+		if err == nil {
+			return p.K, i
+		}
 	}
-	// log.Printf("error reading int: %s %v", p.K, p.V)
-	return math.MinInt64
+	return p.K, math.MinInt64
 }
 
-func (p *Pair) String() string {
+func (p Pair) String() (string, string) {
 	if str, ok := p.V.(string); ok {
-		return str
+		return p.K, str
 	}
-	// log.Printf("error reading string: %s %v", p.K, p.V)
-	return ""
+	return p.K, ""
 }
 
-func (p *Pair) Strings() []string {
+func (p Pair) Strings() (string, []string) {
 	if slices, ok := p.V.([]string); ok {
-		return slices
+		return p.K, slices
 	}
-	// log.Printf("error reading strings: %s %v", p.K, p.V)
-	return nil
+	return p.K, nil
 }
