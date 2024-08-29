@@ -108,7 +108,7 @@ func Page() {
 	if _, running := ServerIsRunnning(); running {
 		cache.Page(nil)
 	} else {
-		fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
+		fmt.Fprintf(os.Stderr, "Cannon server is not running. Use --start or --toggle to start it.")
 	}
 }
 
@@ -122,7 +122,7 @@ func Status() {
 	if _, running := ServerIsRunnning(); running {
 		cache.Status(nil)
 	} else {
-		fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
+		fmt.Fprintf(os.Stderr, "Cannon server is not running. Use --start or --toggle to start it.")
 	}
 }
 
