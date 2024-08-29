@@ -106,56 +106,42 @@ in a web browser using a static HTTP server.`,
 		},
 
 		Action: func(cCtx *cli.Context) error {
-			// fmt.Printf("%v", cCtx)
-			// fmt.Printf("%v\n", strings.Join(cCtx.StringSlice("start"), `, `))
-			// fmt.Printf("%v", cCtx.App)
-			// fmt.Printf("%v", cCtx.App.Flags)
-			// fmt.Printf("%v", cCtx.App.Commands)
-			// fmt.Printf("%q", cCtx.NumFlags())
-			// fmt.Printf("%q", cCtx.App.Flags[0])
-			// fmt.Printf("%q", cCtx.Args().Get(0))
-
-			fmt.Printf("%d", cCtx.Args().Len())
-
-			if cCtx.Args().Len() > 0 {
-				path, err := filepath.Abs(cCtx.Args().Get(0))
-				if err != nil {
-					fmt.Println(err)
-				} else {
-					fp, err := os.Open(path)
-					if err != nil {
-						fmt.Println(err)
-					} else {
-						defer fp.Close()
-
-						// write mime type to stdout for display in the right pane
-						fmt.Println(cache.GetMimeType(path))
-
-						// send file path argument to /update endpoint
-						if _, running := server.ServerIsRunnning(); running {
-							port := config.Port()
-							url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
-							postBody, _ := json.Marshal(map[string]string{
-								"file": path,
-							})
-							responseBody := bytes.NewBuffer(postBody)
-							resp, err := http.Post(url, "application/json", responseBody)
-							if err != nil {
-								fmt.Println(err)
-							}
-							defer resp.Body.Close()
-						} else {
-							// fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
-						}
-					}
-				}
-
-				// lf requires a non-zero return value to disable caching
-				_, exit := config.Exit().Int()
-				os.Exit(exit)
+			if cCtx.Args().Len() == 0 {
+				return nil
 			}
 
-			return nil
+			path, err := filepath.Abs(cCtx.Args().Get(0))
+			if err != nil {
+				return err
+			}
+
+			fp, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer fp.Close()
+
+			// write mime type to stdout for display in the right pane
+			// fmt.Println(cache.GetMimeType(path))
+
+			// send file path argument to /update endpoint
+			if _, running := server.ServerIsRunnning(); running {
+				port := config.Port()
+				url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
+				postBody, _ := json.Marshal(map[string]string{
+					"file": path,
+				})
+				responseBody := bytes.NewBuffer(postBody)
+				resp, err := http.Post(url, "application/json", responseBody)
+				if err != nil {
+					fmt.Println(err)
+				}
+				defer resp.Body.Close()
+			}
+
+			// lf requires a non-zero return value to disable caching
+			_, exit := config.Exit().Int()
+			return cli.Exit(cache.GetMimeType(path), exit)
 		},
 	}
 
