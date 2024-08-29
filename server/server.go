@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -92,6 +93,11 @@ func Page() {
 	} else {
 		fmt.Println("Cannon server is not running. Use --start or --toggle to start it.")
 	}
+}
+
+func Reset() {
+	// reset the connection from the server side to unlock the file so it can be moved/deleted
+	log.Panicln("server.Reset() is not yet implemented")
 }
 
 func Status() {

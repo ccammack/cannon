@@ -95,6 +95,15 @@ in a web browser using a static HTTP server.`,
 				},
 			},
 			&cli.BoolFlag{
+				Name: "reset",
+				// Aliases: []string{"r"},
+				Usage: "Reset the server to close the current file.",
+				Action: func(ctx *cli.Context, v bool) error {
+					server.Reset()
+					return nil
+				},
+			},
+			&cli.BoolFlag{
 				Name: "status",
 				// Aliases: []string{"u"},
 				Usage: "Display the server status for testing",
