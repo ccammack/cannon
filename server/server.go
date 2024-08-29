@@ -47,6 +47,9 @@ func startBrowser() {
 }
 
 func Start() {
+	// validate server config and watch for changes
+	config.Start()
+
 	// start the local preview browser
 	go startBrowser()
 

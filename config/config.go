@@ -21,6 +21,7 @@ var (
 	config     = koanf.New(".")
 	configLock = new(sync.RWMutex)
 	configPath = xdg.ConfigHome + "/cannon/cannon.yml"
+	configFp   = new(file.File)
 	callbacks  []func(string)
 )
 
@@ -210,18 +211,62 @@ func postLoad() {
 	}
 }
 
+// func init() {
+// 	// load config file
+// 	file := file.Provider(configPath)
+// 	err := config.Load(file, yaml.Parser())
+// 	if err != nil {
+// 		log.Panicf("error loading config: %v", err)
+// 	}
+
+// 	postLoad()
+
+// 	// watch for config file changes and reload
+// 	file.Watch(func(event interface{}, err error) {
+// 		if err != nil {
+// 			log.Printf("watch error: %v", err)
+// 			return
+// 		}
+
+// 		// reload config file
+// 		tmp := koanf.New(".")
+// 		if err := tmp.Load(file, yaml.Parser()); err != nil {
+// 			log.Printf("error loading config: %v", err)
+// 			return
+// 		}
+
+// 		// update loaded config
+// 		configLock.Lock()
+// 		defer configLock.Unlock()
+// 		config = tmp
+
+// 		postLoad()
+
+// 		// notify subscribers
+// 		for _, callback := range callbacks {
+// 			callback("reload")
+// 		}
+// 	})
+// }
+
 func init() {
-	// load config file
-	file := file.Provider(configPath)
-	err := config.Load(file, yaml.Parser())
+	// load the config file on every invocation
+	configFp = file.Provider(configPath)
+	err := config.Load(configFp, yaml.Parser())
 	if err != nil {
 		log.Panicf("error loading config: %v", err)
 	}
 
+	// check required fields
+	Port()
+}
+
+func Start() {
+	// perform additional config checks for --start
 	postLoad()
 
 	// watch for config file changes and reload
-	file.Watch(func(event interface{}, err error) {
+	configFp.Watch(func(event interface{}, err error) {
 		if err != nil {
 			log.Printf("watch error: %v", err)
 			return
@@ -229,7 +274,7 @@ func init() {
 
 		// reload config file
 		tmp := koanf.New(".")
-		if err := tmp.Load(file, yaml.Parser()); err != nil {
+		if err := tmp.Load(configFp, yaml.Parser()); err != nil {
 			log.Printf("error loading config: %v", err)
 			return
 		}
