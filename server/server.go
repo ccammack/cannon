@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 
 	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/config"
@@ -47,6 +49,14 @@ func startBrowser() {
 }
 
 func Start() {
+	// prepare exit strategy
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		Stop()
+	}()
+
 	// validate server config and watch for changes
 	config.Start()
 
@@ -75,8 +85,12 @@ func Stop() {
 		url := fmt.Sprintf("http://localhost:%v/%s", port, "stop")
 		resp, err := http.Get(url)
 		if err != nil {
+			log.Printf("error stopping server: %v", err)
 		}
 		defer resp.Body.Close()
+
+		// normal cleanup
+		cache.Exit()
 	}
 }
 

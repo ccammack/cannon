@@ -7,9 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/ccammack/cannon/cache"
@@ -19,15 +17,6 @@ import (
 )
 
 func main() {
-	// prepare exit strategy
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		cache.Exit()
-		os.Exit(0)
-	}()
-
 	// process command line
 	// cmd.Execute()
 
@@ -143,7 +132,7 @@ in a web browser using a static HTTP server.`,
 				responseBody := bytes.NewBuffer(postBody)
 				resp, err := http.Post(url, "application/json", responseBody)
 				if err != nil {
-					fmt.Println(err)
+					log.Printf("error during post request: %v", err)
 				}
 				defer resp.Body.Close()
 			}
@@ -157,7 +146,4 @@ in a web browser using a static HTTP server.`,
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
-
-	// normal cleanup
-	cache.Exit()
 }
