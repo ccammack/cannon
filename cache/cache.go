@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -230,7 +229,8 @@ func init() {
 }
 
 func GetMimeType(file string) string {
-	command := config.Mime()
+	mime := config.Mime()
+	command := mime.Strings()
 	if len(command) > 0 {
 		cmd, args := util.FormatCommand(command, map[string]string{"{file}": file})
 		out, _ := exec.Command(cmd, args...).CombinedOutput()
@@ -261,20 +261,28 @@ func matchConfigRules(file string) (string, []string, string, bool) {
 
 	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
 	mimetype := strings.ToLower(GetMimeType(file))
-	rules := config.Rules()
+	_, rules := config.Rules()
 
 	for _, rule := range rules {
 		match := ""
-		if len(extension) > 0 && len(rule.Ext) > 0 && util.Find(rule.Ext, extension) < len(rule.Ext) {
-			match = fmt.Sprintf("ext: %v", rule.Ext)
-		} else if len(mimetype) > 0 && len(rule.Mim) > 0 && util.Find(rule.Mim, mimetype) < len(rule.Mim) {
-			match = fmt.Sprintf("mime: %v", rule.Mim)
+		extp := rule.Ext
+		exts := extp.Strings()
+		mimp := rule.Mim
+		mims := mimp.Strings()
+		if len(extension) > 0 && len(exts) > 0 && util.Find(exts, extension) < len(exts) {
+			match = fmt.Sprintf("ext: %v", exts)
+		} else if len(mimetype) > 0 && len(mims) > 0 && util.Find(mims, mimetype) < len(mims) {
+			match = fmt.Sprintf("mime: %v", mims)
 		}
 		if len(match) > 80 {
 			match = match[:util.Min(len(match), 80)] + "...]"
 		}
 		if match != "" {
-			return match, rule.Cmd, rule.Tag, true
+			cmdp := rule.Cmd
+			cmds := cmdp.Strings()
+			tagp := rule.Tag
+			tag := tagp.String()
+			return match, cmds, tag, true
 		}
 	}
 
@@ -466,8 +474,11 @@ func getCurrentResourceData() map[string]template.HTML {
 	// return the current resource for display
 
 	// set default values
+	intervalp := config.Interval()
+	interval := intervalp.String()
+
 	data := map[string]template.HTML{
-		"interval": template.HTML(strconv.Itoa(config.Interval())),
+		"interval": template.HTML(interval),
 	}
 
 	// look up the current resource if it exists

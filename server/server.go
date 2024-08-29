@@ -20,7 +20,8 @@ var (
 
 func ServerIsRunnning() (int, bool) {
 	// read config
-	port := config.Port()
+	portp := config.Port()
+	port := portp.Int()
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
 
 	// return true if the port is already in use (assume that's the server)
@@ -33,9 +34,12 @@ func ServerIsRunnning() (int, bool) {
 }
 
 func startBrowser() {
-	port := config.Port()
+	portp := config.Port()
+	port := portp.Int()
 	url := fmt.Sprintf("%s:%d", "https://localhost", port)
-	command := config.Browser()
+	commandp := config.Browser()
+	command := commandp.Strings()
+
 	if len(command) > 0 {
 		cmd, args := util.FormatCommand(command, map[string]string{"{url}": url})
 		proc := exec.Command(cmd, args...)

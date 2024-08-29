@@ -2,16 +2,15 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 
 	"github.com/adrg/xdg"
-	"github.com/ccammack/cannon/util"
+	"github.com/ccammack/cannon/gen"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -23,11 +22,15 @@ var (
 	callbacks  []func(string)
 )
 
-func platform() string { return strings.ToLower(runtime.GOOS) }
+func platform() string {
+	return strings.ToLower(runtime.GOOS)
+}
 
 func hostname() string {
 	hostname, err := os.Hostname()
-	util.CheckPanic(err, "error reading hostname")
+	if err != nil {
+		log.Panicf("error reading hostname: %v", err)
+	}
 	return strings.ToLower(hostname)
 }
 
@@ -44,106 +47,177 @@ func key(key string, ko *koanf.Koanf) (string, error) {
 	if ko.Exists(defaultKey) {
 		return defaultKey, nil
 	}
-	return "", errors.New(key)
+	return key, errors.New(key)
 }
 
-func requiredInt(s string, ko *koanf.Koanf) int {
-	key, err := key(s, ko)
-	util.CheckPanic(err, "error finding required key")
-	return ko.Int(key)
-}
+// func required(s string, ko *koanf.Koanf) Pair {
+// 	key, err := key(s, ko)
+// 	if err != nil {
+// 		log.Panicf("error finding required key: %v", err)
+// 	}
+// 	return Pair{key, ko.Get(key)}
+// }
 
-func requiredStrings(s string, ko *koanf.Koanf) []string {
-	key, err := key(s, ko)
-	util.CheckPanic(err, "error finding required key")
-	return ko.Strings(key)
-}
+// func optional(s string, ko *koanf.Koanf) Pair {
+// 	key, err := key(s, ko)
+// 	if err != nil {
+// 		return Pair{key, nil}
+// 	}
+// 	return Pair{key, ko.Get(key)}
+// }
 
-func optionalString(s string, ko *koanf.Koanf) string {
-	key, err := key(s, ko)
-	if err != nil {
-		return ""
-	}
-	return ko.String(key)
-}
-
-func optionalStrings(s string, ko *koanf.Koanf) []string {
+func requiredInt(s string, ko *koanf.Koanf) gen.Pair {
 	key, err := key(s, ko)
 	if err != nil {
-		return nil
+		log.Panicf("error finding required key: %v", err)
 	}
-	return ko.Strings(key)
+	return gen.Pair{K: key, V: ko.Int(key)}
 }
 
-func Port() int         { return requiredInt("port", config) }
-func Interval() int     { return requiredInt("interval", config) }
-func Exit() int         { return requiredInt("exit", config) }
-func Mime() []string    { return requiredStrings("mime", config) }
-func Browser() []string { return requiredStrings("browser", config) }
+func requiredStrings(s string, ko *koanf.Koanf) gen.Pair {
+	key, err := key(s, ko)
+	if err != nil {
+		log.Panicf("error finding required key: %v", err)
+	}
+	return gen.Pair{K: key, V: ko.Strings(key)}
+}
+
+func optionalString(s string, ko *koanf.Koanf) gen.Pair {
+	key, err := key(s, ko)
+	if err != nil {
+		return gen.Pair{K: key, V: nil}
+	}
+	return gen.Pair{K: key, V: ko.String(key)}
+}
+
+func optionalStrings(s string, ko *koanf.Koanf) gen.Pair {
+	key, err := key(s, ko)
+	if err != nil {
+		return gen.Pair{K: key, V: nil}
+	}
+	return gen.Pair{K: key, V: ko.Strings(key)}
+}
+
+func Port() gen.Pair     { return requiredInt("port", config) }
+func Interval() gen.Pair { return requiredInt("interval", config) }
+func Exit() gen.Pair     { return requiredInt("exit", config) }
+func Mime() gen.Pair     { return requiredStrings("mime", config) }
+func Browser() gen.Pair  { return optionalStrings("browser", config) }
 
 type FileConversionRule struct {
-	Ext []string
-	Mim []string
-	Dep []string
-	Msg string
-	Cmd []string
-	Tag string
+	Ext gen.Pair
+	Mim gen.Pair
+	Dep gen.Pair
+	Msg gen.Pair
+	Cmd gen.Pair
+	Tag gen.Pair
 }
 
-func Rules() []FileConversionRule {
-	// find the highest priority rule set prefix
-	prefix, err := key("rules", config)
+// TODO: make Rules() return a gen.Pair
+func Rules() (string, []FileConversionRule) {
+	// find the highest priority rule set
+	key, err := key("rules", config)
 	if err != nil {
-		return nil
+		return "", nil
 	}
 
 	configLock.RLock()
 	defer configLock.RUnlock()
 
+	// clone the the rules
 	rules := []FileConversionRule{}
-	for _, v := range config.Slices(prefix) {
-		ext := slices.Clone(optionalStrings("ext", v))
-		mim := slices.Clone(optionalStrings("mim", v))
-		dep := slices.Clone(optionalStrings("dep", v))
-		msg := strings.Clone(optionalString("msg", v))
-		cmd := slices.Clone(optionalStrings("cmd", v))
-		tag := strings.Clone(optionalString("tag", v))
-		rule := FileConversionRule{ext, mim, dep, msg, cmd, tag}
-		rules = append(rules, rule)
+	for _, v := range config.Slices(key) {
+		ext := optionalStrings("ext", v)
+		mim := optionalStrings("mim", v)
+		dep := optionalStrings("dep", v)
+		cmd := optionalStrings("cmd", v)
+
+		msg := optionalString("msg", v)
+		tag := optionalString("tag", v)
+
+		rules = append(rules, FileConversionRule{ext, mim, dep, msg, cmd, tag})
 	}
 
-	return rules
+	// return gen.Pair{K: key, V: rules}
+	return key, rules
 }
 
 func RegisterCallback(callback func(string)) {
 	callbacks = append(callbacks, callback)
 }
 
-func afterLoad() {
+func requiredExe(path string) {
+	_, err := exec.LookPath(path)
+	if err != nil {
+		log.Panicf("error finding specified executable: %v", err)
+	}
+}
+
+func optionalExe(path string) error {
+	_, err := exec.LookPath(path)
+	return err
+}
+
+func postLoad() {
 	// redirect log output to logfile if defined
-	fname := optionalString("logfile", config)
-	if fname != "" {
-		file, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	logp := optionalString("logfile", config)
+	logk, logv := logp.Key(), logp.String()
+	if logv != "" {
+		file, err := os.OpenFile(logv, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
-			log.Printf("error setting logfile: %v", err)
+			log.Printf("error setting %s: %v", logk, err)
 		} else {
 			log.SetOutput(file)
+		}
+	}
+
+	// check required fields
+	Port()
+	Interval()
+
+	// make sure configured executables exist
+	mimep := Mime()
+	mime := mimep.Strings()[0]
+	if len(mime) != 0 {
+		requiredExe(mime)
+	}
+	browserp := Browser()
+	browser := browserp.Strings()[0]
+	if len(browser) != 0 {
+		requiredExe(browser)
+	}
+
+	// validate the specified conversion rules
+	rulesk, rulesv := Rules()
+	for idx, rule := range rulesv {
+		usage := false
+		depsp := rule.Dep
+		depsk, depsv := depsp.Key(), depsp.Strings()
+		for _, dep := range depsv {
+			err := optionalExe(dep)
+			if err != nil {
+				log.Printf("error finding %s[%d].%s[%s]: %v", rulesk, idx, depsk, dep, err)
+				usage = true
+			}
+		}
+		if usage {
+			log.Printf("%s", rule.Msg.String())
 		}
 	}
 }
 
 func init() {
 	// load config file
-	f := file.Provider(xdg.ConfigHome + "/cannon/cannon.toml.yml")
-	err := config.Load(f, yaml.Parser())
-	util.CheckPanic(err, "error loading config")
+	file := file.Provider(xdg.ConfigHome + "/cannon/cannon.yml")
+	err := config.Load(file, yaml.Parser())
+	if err != nil {
+		log.Panicf("error loading config: %v", err)
+	}
 
-	afterLoad()
-
-	fmt.Printf("%v\n", Rules())
+	postLoad()
 
 	// watch for config file changes and reload
-	f.Watch(func(event interface{}, err error) {
+	file.Watch(func(event interface{}, err error) {
 		if err != nil {
 			log.Printf("watch error: %v", err)
 			return
@@ -151,17 +225,17 @@ func init() {
 
 		// reload config file
 		tmp := koanf.New(".")
-		if err := tmp.Load(f, yaml.Parser()); err != nil {
+		if err := tmp.Load(file, yaml.Parser()); err != nil {
 			log.Printf("error loading config: %v", err)
 			return
 		}
 
-		// update config
+		// update loaded config
 		configLock.Lock()
+		defer configLock.Unlock()
 		config = tmp
-		configLock.Unlock()
 
-		afterLoad()
+		postLoad()
 
 		// notify subscribers
 		for _, callback := range callbacks {

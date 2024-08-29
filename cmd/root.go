@@ -80,7 +80,8 @@ in a web browser using a static http server.`,
 			}
 
 			// lf requires a non-zero return value to disable caching
-			exit := config.Exit()
+			exitp := config.Exit()
+			exit := exitp.Int()
 			os.Exit(exit)
 		}
 	},
