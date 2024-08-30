@@ -86,12 +86,12 @@ To do this, install the desired conversion software, then configure the `file_co
 
 When a match is found, Cannon will run the associated `command` to produce an output file and then serve the file using the specified HTML `tag`. If a rule does not specify a `command`, Cannon will just serve the original file.
 
-For example, `mp3` and `wav` files can be served directly using the `<audio>` tag without running a conversion. The `{src}` parameter is required for each `tag` definition.
+For example, `mp3` and `wav` files can be served directly using the `<audio>` tag without running a conversion. The `{url}` parameter is required for each `tag` definition.
 
 ```
 - # native html5 audio formats do not need conversion
   ext: [mp3, wav]
-  tag: <audio autoplay loop controls src='{src}'>
+  tag: <audio autoplay loop controls src='{url}'>
 ```
 
 All other audio files require sampling and conversion using `ffmpeg` to create a short audio preview. The `{input}` and `{output}` parameters are required for this conversion. The `{output}` parameter may specify an extension.
@@ -102,7 +102,7 @@ All other audio files require sampling and conversion using `ffmpeg` to create a
   command:
     default: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
     windows: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
-  tag: <audio autoplay loop controls src='{src}'>
+  tag: <audio autoplay loop controls src='{url}'>
 ```
 
 If none of the conversion rules match, Cannon will display the first 4K bytes of the file.

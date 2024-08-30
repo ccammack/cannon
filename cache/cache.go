@@ -358,7 +358,7 @@ func convertFile(input string, hash string, output string) {
 			} else {
 				// otherwise, use the provided tag
 				resource.outputName = resource.inputName
-				resource.html = strings.Replace(tag, "{src}", "{document.location.href}"+hash, 1)
+				resource.html = strings.Replace(tag, "{url}", "{document.location.href}"+hash, 1)
 				resource.htmlHash = makeHash(resource.html)
 				resource.ready = true
 			}
@@ -383,7 +383,7 @@ func convertFile(input string, hash string, output string) {
 					} else {
 						// otherwise, use the provided tag
 						resource.outputName = resource.inputName
-						resource.html = strings.Replace(tag, "{src}", resource.combinedOutput, 1)
+						resource.html = strings.Replace(tag, "{url}", resource.combinedOutput, 1)
 						resource.htmlHash = makeHash(resource.html)
 						resource.ready = true
 					}
@@ -396,7 +396,7 @@ func convertFile(input string, hash string, output string) {
 						resource.ready = true
 					} else {
 						// if the file conversion succeeds, serve the converted output file
-						resource.html = strings.Replace(tag, "{src}", "{document.location.href}"+hash, 1)
+						resource.html = strings.Replace(tag, "{url}", "{document.location.href}"+hash, 1)
 						resource.htmlHash = makeHash(resource.html)
 						resource.ready = true
 					}
