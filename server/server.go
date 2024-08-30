@@ -31,7 +31,7 @@ func ServerIsRunnning() (int, error) {
 
 func startBrowser() {
 	_, port := config.Port().Int()
-	url := fmt.Sprintf("%s:%d", "https://localhost", port)
+	url := fmt.Sprintf("%s:%d", "http://localhost", port)
 	_, command := config.Browser().Strings()
 
 	if len(command) > 0 {
