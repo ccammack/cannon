@@ -123,7 +123,7 @@ in a web browser using a static HTTP server.`,
 			// fmt.Println(cache.GetMimeType(path))
 
 			// send file path argument to /update endpoint
-			if _, running := server.ServerIsRunnning(); running {
+			if _, err := server.ServerIsRunnning(); err != nil {
 				port := config.Port()
 				url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
 				postBody, _ := json.Marshal(map[string]string{
