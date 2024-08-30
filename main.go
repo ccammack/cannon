@@ -139,8 +139,8 @@ in a web browser using a static HTTP server.`,
 
 			// lf requires a non-zero return value to disable caching
 			_, exit := config.Exit().Int()
-			mime := cache.GetMimeType(path)
-			return cli.Exit(mime, exit)
+			mimetype := cache.GetMimeType(path)
+			return cli.Exit(mimetype, exit)
 		},
 	}
 
