@@ -18,10 +18,10 @@ import (
 )
 
 var (
-	config     = koanf.New(".")
-	configLock = new(sync.RWMutex)
 	configPath = xdg.ConfigHome + "/cannon/cannon.yml"
 	configFp   = new(file.File)
+	config     = koanf.New(".")
+	configLock = new(sync.RWMutex)
 	callbacks  []func(string)
 )
 
@@ -53,23 +53,8 @@ func key(key string, ko *koanf.Koanf) (string, error) {
 	return key, errors.New(key)
 }
 
-// func required(s string, ko *koanf.Koanf) Pair {
-// 	key, err := key(s, ko)
-// 	if err != nil {
-// 		log.Panicf("error finding required key: %v", err)
-// 	}
-// 	return Pair{key, ko.Get(key)}
-// }
-
-// func optional(s string, ko *koanf.Koanf) Pair {
-// 	key, err := key(s, ko)
-// 	if err != nil {
-// 		return Pair{key, nil}
-// 	}
-// 	return Pair{key, ko.Get(key)}
-// }
-
 func requiredInt(s string, ko *koanf.Koanf) gen.Pair {
+	// read the value as a string and convert to int
 	key, err := key(s, ko)
 	if err != nil {
 		log.Panicf("error finding required key: %v", err)
@@ -113,15 +98,14 @@ func Mime() gen.Pair     { return requiredStrings("mime", config) }
 func Browser() gen.Pair  { return optionalStrings("browser", config) }
 
 type FileConversionRule struct {
-	Ext gen.Pair
-	Mim gen.Pair
-	Dep gen.Pair
-	Msg gen.Pair
-	Cmd gen.Pair
-	Tag gen.Pair
+	Ext  gen.Pair
+	Mime gen.Pair
+	Deps gen.Pair
+	Desc gen.Pair
+	Cmd  gen.Pair
+	Html gen.Pair
 }
 
-// TODO: make Rules() return a gen.Pair
 func Rules() (string, []FileConversionRule) {
 	// find the highest priority rule set
 	key, err := key("rules", config)
@@ -136,16 +120,17 @@ func Rules() (string, []FileConversionRule) {
 	rules := []FileConversionRule{}
 	for _, v := range config.Slices(key) {
 		ext := optionalStrings("ext", v)
-		mim := optionalStrings("mim", v)
-		dep := optionalStrings("dep", v)
+		mime := optionalStrings("mime", v)
+		deps := optionalStrings("deps", v)
 		cmd := optionalStrings("cmd", v)
 
-		msg := optionalString("msg", v)
-		tag := optionalString("tag", v)
+		desc := optionalString("desc", v)
+		html := optionalString("html", v)
 
-		rules = append(rules, FileConversionRule{ext, mim, dep, msg, cmd, tag})
+		rules = append(rules, FileConversionRule{ext, mime, deps, desc, cmd, html})
 	}
 
+	// TODO: make Rules() return a gen.Pair
 	// return gen.Pair{K: key, V: rules}
 	return key, rules
 }
@@ -196,7 +181,7 @@ func postLoad() {
 	rulesk, rulesv := Rules()
 	for idx, rule := range rulesv {
 		usage := false
-		depsk, depsv := rule.Dep.Strings()
+		depsk, depsv := rule.Deps.Strings()
 		for _, dep := range depsv {
 			err := optionalExe(dep)
 			if err != nil {
@@ -205,49 +190,11 @@ func postLoad() {
 			}
 		}
 		if usage {
-			_, msg := rule.Msg.String()
-			log.Printf("%s", msg)
+			_, desc := rule.Desc.String()
+			log.Printf("%s", desc)
 		}
 	}
 }
-
-// func init() {
-// 	// load config file
-// 	file := file.Provider(configPath)
-// 	err := config.Load(file, yaml.Parser())
-// 	if err != nil {
-// 		log.Panicf("error loading config: %v", err)
-// 	}
-
-// 	postLoad()
-
-// 	// watch for config file changes and reload
-// 	file.Watch(func(event interface{}, err error) {
-// 		if err != nil {
-// 			log.Printf("watch error: %v", err)
-// 			return
-// 		}
-
-// 		// reload config file
-// 		tmp := koanf.New(".")
-// 		if err := tmp.Load(file, yaml.Parser()); err != nil {
-// 			log.Printf("error loading config: %v", err)
-// 			return
-// 		}
-
-// 		// update loaded config
-// 		configLock.Lock()
-// 		defer configLock.Unlock()
-// 		config = tmp
-
-// 		postLoad()
-
-// 		// notify subscribers
-// 		for _, callback := range callbacks {
-// 			callback("reload")
-// 		}
-// 	})
-// }
 
 func init() {
 	// load the config file on every invocation

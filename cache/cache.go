@@ -265,19 +265,19 @@ func matchConfigRules(file string) (string, []string, string, bool) {
 	for _, rule := range rules {
 		match := ""
 		_, exts := rule.Ext.Strings()
-		_, mims := rule.Mim.Strings()
+		_, mimes := rule.Mime.Strings()
 		if len(extension) > 0 && len(exts) > 0 && util.Find(exts, extension) < len(exts) {
 			match = fmt.Sprintf("ext: %v", exts)
-		} else if len(mimetype) > 0 && len(mims) > 0 && util.Find(mims, mimetype) < len(mims) {
-			match = fmt.Sprintf("mime: %v", mims)
+		} else if len(mimetype) > 0 && len(mimes) > 0 && util.Find(mimes, mimetype) < len(mimes) {
+			match = fmt.Sprintf("mime: %v", mimes)
 		}
 		if len(match) > 80 {
 			match = match[:util.Min(len(match), 80)] + "...]"
 		}
 		if match != "" {
 			_, cmds := rule.Cmd.Strings()
-			_, tag := rule.Tag.String()
-			return match, cmds, tag, true
+			_, html := rule.Html.String()
+			return match, cmds, html, true
 		}
 	}
 
