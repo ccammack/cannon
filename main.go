@@ -124,8 +124,8 @@ in a web browser using a static HTTP server.`,
 
 			// send file path argument to /update endpoint
 			if _, err := server.ServerIsRunnning(); err != nil {
-				port := config.Port()
-				url := fmt.Sprintf("http://localhost:%v/%s", port, "update")
+				_, port := config.Port().String()
+				url := fmt.Sprintf("http://localhost:%s/%s", port, "update")
 				postBody, _ := json.Marshal(map[string]string{
 					"file": path,
 				})
@@ -139,7 +139,8 @@ in a web browser using a static HTTP server.`,
 
 			// lf requires a non-zero return value to disable caching
 			_, exit := config.Exit().Int()
-			return cli.Exit(cache.GetMimeType(path), exit)
+			mime := cache.GetMimeType(path)
+			return cli.Exit(mime, exit)
 		},
 	}
 

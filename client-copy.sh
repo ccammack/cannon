@@ -12,4 +12,4 @@ if [ "$(pwd)" != "$server.client" ]; then
     exit
 fi
 
-rsync -av --exclude='.git' --exclude='cache' "$server/" .
+rsync -av --exclude='.git' --exclude='.cache' --exclude='__debug_bin' "$server/" .

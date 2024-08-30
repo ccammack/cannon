@@ -24,8 +24,8 @@ Cannon depends on external programs for MIME detection, which are configured in 
 
 ```
 mime:
-  default: ['file', '-b', '--mime-type', '{file}']
-  windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{file}']
+  default: ['file', '-b', '--mime-type', '{input}']
+  windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{input}']
 ```
 
 # Running

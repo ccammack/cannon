@@ -20,11 +20,11 @@ settings:
   # specify command and args to detect a file's mime-type
   #     use mime.default to specify the default command for all platforms
   #     use mime.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
-  #     specify the {file} placeholder arg in the correct position so cannon can insert the selected file
+  #     specify the {input} placeholder arg in the correct position so cannon can insert the selected file
   #     on Windows, it may be required to specify the full path to the command
   mime:
-    default: ['file', '-b', '--mime-type', '{file}']
-    windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{file}']
+    default: ['file', '-b', '--mime-type', '{input}']
+    windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{input}']
 
   # cannon will set this exit value at the command line: $ cannon <file>
   #     lf requires a non-zero return value to prevent it from trying to cache the preview

@@ -231,7 +231,7 @@ func init() {
 func GetMimeType(file string) string {
 	_, command := config.Mime().Strings()
 	if len(command) > 0 {
-		cmd, args := util.FormatCommand(command, map[string]string{"{file}": file})
+		cmd, args := util.FormatCommand(command, map[string]string{"{input}": file})
 		out, _ := exec.Command(cmd, args...).CombinedOutput()
 		return strings.TrimSuffix(string(out), "\n")
 	}
