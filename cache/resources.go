@@ -1,22 +1,16 @@
 package cache
 
-import (
-	"io/ioutil"
-
-	"github.com/ccammack/cannon/util"
-)
-
-type Resource struct {
-	ready         bool
-	inputName     string
-	inputNameHash string
-	// stdout         string
-	// stderr         string
-	combinedOutput string
-	outputName     string
-	html           string
-	htmlHash       string
-}
+// type Resource struct {
+// 	ready         bool
+// 	inputName     string
+// 	inputNameHash string
+// 	// stdout         string
+// 	// stderr         string
+// 	combinedOutput string
+// 	outputName     string
+// 	html           string
+// 	htmlHash       string
+// }
 
 // func getResource(hash string) (Resource, bool) {
 // 	cache.lock.Lock()
@@ -43,23 +37,6 @@ type Resource struct {
 // 	cache.lock.Unlock()
 // }
 
-func createPreviewFile() string {
-	// create a temp directory on the first call
-	cache.lock.Lock()
-	defer cache.lock.Unlock()
-	if len(cache.tempDir) == 0 {
-		dir, err := ioutil.TempDir("", "cannon")
-		util.CheckPanicOld(err)
-		cache.tempDir = dir
-	}
-
-	// create a temp file to hold the output preview file
-	fp, err := ioutil.TempFile(cache.tempDir, "preview")
-	util.CheckPanicOld(err)
-	defer fp.Close()
-	return fp.Name()
-}
-
 // func createResource(file string, hash string) string {
 // 	// create a new resource for the file if it doesn't already exist
 // 	_, ok := getResource(hash)
@@ -83,29 +60,29 @@ func createPreviewFile() string {
 // 	return ""
 // }
 
-func getCreateResource(file string, hash string) Resource {
-	// create a new resource for the file if it doesn't already exist
-	// resource, ok := getResource(hash)
-	// if !ok {
-	// 	preview := createPreviewFile()
+// func getCreateResource(file string, hash string) Resource {
+// create a new resource for the file if it doesn't already exist
+// resource, ok := getResource(hash)
+// if !ok {
+// 	preview := createPreviewFile()
 
-	// 	// add a new entry for the resource
-	// 	setResource(hash, Resource{
-	// 		false,
-	// 		file,
-	// 		hash,
-	// 		"",
-	// 		preview,
-	// 		"",
-	// 		"",
-	// 	})
+// 	// add a new entry for the resource
+// 	setResource(hash, Resource{
+// 		false,
+// 		file,
+// 		hash,
+// 		"",
+// 		preview,
+// 		"",
+// 		"",
+// 	})
 
-	// 	resource, ok = getResource(hash)
-	// 	if !ok {
-	// 		log.Panic()
-	// 	}
-	// }
+// 	resource, ok = getResource(hash)
+// 	if !ok {
+// 		log.Panic()
+// 	}
+// }
 
-	// return resource
-	return Resource{}
-}
+// return resource
+// 	return Resource{}
+// }

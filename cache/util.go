@@ -3,7 +3,6 @@ package cache
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"html/template"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
-	"golang.org/x/exp/maps"
 )
 
 // max display length for unknown file types
@@ -86,44 +84,44 @@ func formatRawStringElement(raw string) string {
 	return html
 }
 
-func formatCurrentResourceData() map[string]template.HTML {
-	// return the current resource for display
+// func formatCurrentResourceData() map[string]template.HTML {
+// 	// return the current resource for display
 
-	// set default values
-	_, interval := config.Interval().String()
+// 	// set default values
+// 	_, interval := config.Interval().String()
 
-	data := map[string]template.HTML{
-		"interval": template.HTML(interval),
-	}
+// 	data := map[string]template.HTML{
+// 		"interval": template.HTML(interval),
+// 	}
 
-	// look up the current resource if it exists
-	// resource, ok := getResource(getCurrentHash())
-	resource, ok := Resource{}, false
-	if !ok {
-		// serve default values until the first resource is added
-		html := "<p>Waiting for file...</p>"
-		maps.Copy(data, map[string]template.HTML{
-			"title":    "Cannon preview",
-			"html":     template.HTML(html),
-			"htmlhash": template.HTML(makeHash(html)),
-		})
-	} else {
-		if !resource.ready {
-			// serve a spinner until ready is true - https://codepen.io/nikhil8krishnan/pen/rVoXJa
-			maps.Copy(data, map[string]template.HTML{
-				"title":    template.HTML(filepath.Base(resource.inputName)),
-				"html":     template.HTML(SpinnerTemplate),
-				"htmlhash": template.HTML(makeHash(SpinnerTemplate)),
-			})
-		} else {
-			// serve the converted output file (or error text on failure)
-			maps.Copy(data, map[string]template.HTML{
-				"title":    template.HTML(filepath.Base(resource.inputName)),
-				"html":     template.HTML(resource.html),
-				"htmlhash": template.HTML(resource.htmlHash),
-			})
-		}
-	}
+// 	// look up the current resource if it exists
+// 	// resource, ok := getResource(getCurrentHash())
+// 	resource, ok := Resource{}, false
+// 	if !ok {
+// 		// serve default values until the first resource is added
+// 		html := "<p>Waiting for file...</p>"
+// 		maps.Copy(data, map[string]template.HTML{
+// 			"title":    "Cannon preview",
+// 			"html":     template.HTML(html),
+// 			"htmlhash": template.HTML(makeHash(html)),
+// 		})
+// 	} else {
+// 		if false { //!resource.ready {
+// 			// // serve a spinner until ready is true - https://codepen.io/nikhil8krishnan/pen/rVoXJa
+// 			// maps.Copy(data, map[string]template.HTML{
+// 			// 	"title":    template.HTML(filepath.Base(resource.input)),
+// 			// 	"html":     template.HTML(SpinnerTemplate),
+// 			// 	"htmlhash": template.HTML(makeHash(SpinnerTemplate)),
+// 			// })
+// 		} else {
+// 			// serve the converted output file (or error text on failure)
+// 			maps.Copy(data, map[string]template.HTML{
+// 				"title":    template.HTML(filepath.Base(resource.input)),
+// 				"html":     template.HTML(resource.html),
+// 				"htmlhash": template.HTML(resource.htmlHash),
+// 			})
+// 		}
+// 	}
 
-	return data
-}
+// 	return data
+// }
