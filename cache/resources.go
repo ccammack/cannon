@@ -2,113 +2,110 @@ package cache
 
 import (
 	"io/ioutil"
-	"os"
-	"sync"
 
-	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
 )
 
 type Resource struct {
-	ready          bool
-	inputName      string
-	inputNameHash  string
+	ready         bool
+	inputName     string
+	inputNameHash string
+	// stdout         string
+	// stderr         string
 	combinedOutput string
 	outputName     string
 	html           string
 	htmlHash       string
 }
 
-var resources = struct {
-	lock    sync.RWMutex
-	current string
-	lookup  map[string]Resource
-	tempDir string
-}{lookup: make(map[string]Resource)}
+// func getResource(hash string) (Resource, bool) {
+// 	cache.lock.Lock()
+// 	resource, ok := cache.lookup[hash]
+// 	cache.lock.Unlock()
+// 	return resource, ok
+// }
 
-func reloadCallback(event string) {
-	if event == "reload" {
-		resources.lock.Lock()
-		resources.current = ""
-		resources.lookup = make(map[string]Resource)
-		resources.tempDir = ""
-		resources.lock.Unlock()
-	}
-}
+// func setResource(hash string, resource Resource) {
+// 	cache.lock.Lock()
+// 	cache.lookup[hash] = resource
+// 	cache.lock.Unlock()
+// }
 
-func init() {
-	// reset the resource map on config file changes
-	config.RegisterCallback(reloadCallback)
-}
+// func getCurrentHash() string {
+// 	cache.lock.Lock()
+// 	defer cache.lock.Unlock()
+// 	return cache.current
+// }
 
-func Exit() {
-	// clean up
-	if len(resources.tempDir) > 0 {
-		os.RemoveAll(resources.tempDir)
-	}
-}
-
-func getResource(hash string) (Resource, bool) {
-	resources.lock.Lock()
-	resource, ok := resources.lookup[hash]
-	resources.lock.Unlock()
-	return resource, ok
-}
-
-func setResource(hash string, resource Resource) {
-	resources.lock.Lock()
-	resources.lookup[hash] = resource
-	resources.lock.Unlock()
-}
-
-func getCurrentHash() string {
-	resources.lock.Lock()
-	defer resources.lock.Unlock()
-	return resources.current
-}
-
-func setCurrentHash(hash string) {
-	resources.lock.Lock()
-	resources.current = hash
-	resources.lock.Unlock()
-}
+// func setCurrentHash(hash string) {
+// 	cache.lock.Lock()
+// 	cache.current = hash
+// 	cache.lock.Unlock()
+// }
 
 func createPreviewFile() string {
 	// create a temp directory on the first call
-	resources.lock.Lock()
-	defer resources.lock.Unlock()
-	if len(resources.tempDir) == 0 {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+	if len(cache.tempDir) == 0 {
 		dir, err := ioutil.TempDir("", "cannon")
 		util.CheckPanicOld(err)
-		resources.tempDir = dir
+		cache.tempDir = dir
 	}
 
 	// create a temp file to hold the output preview file
-	fp, err := ioutil.TempFile(resources.tempDir, "preview")
+	fp, err := ioutil.TempFile(cache.tempDir, "preview")
 	util.CheckPanicOld(err)
 	defer fp.Close()
 	return fp.Name()
 }
 
-func createResource(file string, hash string) string {
+// func createResource(file string, hash string) string {
+// 	// create a new resource for the file if it doesn't already exist
+// 	_, ok := getResource(hash)
+// 	if !ok {
+// 		preview := createPreviewFile()
+
+// 		// add a new entry for the resource
+// 		setResource(hash, Resource{
+// 			false,
+// 			file,
+// 			hash,
+// 			"",
+// 			preview,
+// 			"",
+// 			"",
+// 		})
+
+// 		return preview
+// 	}
+
+// 	return ""
+// }
+
+func getCreateResource(file string, hash string) Resource {
 	// create a new resource for the file if it doesn't already exist
-	_, ok := getResource(hash)
-	if !ok {
-		preview := createPreviewFile()
+	// resource, ok := getResource(hash)
+	// if !ok {
+	// 	preview := createPreviewFile()
 
-		// add a new entry for the resource
-		setResource(hash, Resource{
-			false,
-			file,
-			hash,
-			"",
-			preview,
-			"",
-			"",
-		})
+	// 	// add a new entry for the resource
+	// 	setResource(hash, Resource{
+	// 		false,
+	// 		file,
+	// 		hash,
+	// 		"",
+	// 		preview,
+	// 		"",
+	// 		"",
+	// 	})
 
-		return preview
-	}
+	// 	resource, ok = getResource(hash)
+	// 	if !ok {
+	// 		log.Panic()
+	// 	}
+	// }
 
-	return ""
+	// return resource
+	return Resource{}
 }

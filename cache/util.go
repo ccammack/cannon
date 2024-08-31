@@ -97,7 +97,8 @@ func formatCurrentResourceData() map[string]template.HTML {
 	}
 
 	// look up the current resource if it exists
-	resource, ok := getResource(getCurrentHash())
+	// resource, ok := getResource(getCurrentHash())
+	resource, ok := Resource{}, false
 	if !ok {
 		// serve default values until the first resource is added
 		html := "<p>Waiting for file...</p>"

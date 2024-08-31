@@ -4,15 +4,53 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
 )
+
+var cache = struct {
+	lock    sync.RWMutex
+	current string
+	lookup  map[string]*Resource
+	tempDir string
+}{lookup: make(map[string]*Resource)}
+
+func reloadCallback(event string) {
+	if event == "reload" {
+		cache.lock.Lock()
+		cache.current = ""
+		cache.lookup = make(map[string]*Resource)
+		cache.tempDir = ""
+		cache.lock.Unlock()
+	}
+}
+
+func init() {
+	// reset the resource map on config file changes
+	config.RegisterCallback(reloadCallback)
+}
+
+func Exit() {
+	// clean up
+	cache.lock.Lock()
+	if len(cache.tempDir) > 0 {
+		os.RemoveAll(cache.tempDir)
+	}
+	cache.lock.Unlock()
+}
+
+///
+
+///
 
 func matchConfigRules(file string) (string, []string, string, bool) {
 	// TODO: this should return an array of matches and so the caller can run all of them until something succeeds
@@ -170,12 +208,14 @@ func serveCommand(key string, resource Resource, input string, output string, ha
 	return true
 }
 
-func convertFile2(input string, hash string, output string) {
+func convertFile2(input string, hash string) {
 	// run conversion rules on the input file to produce output
-	resource, ok := getResource(hash)
-	if !ok {
-		panic("Resource lookup failed in cache.go!")
-	}
+	resource := getCreateResource(input, hash)
+	// if !ok {
+	// 	panic("Resource lookup failed in cache.go!")
+	// }
+
+	output := resource.inputName
 
 	// find the first matching configuration rule
 	key, rules := matchConversionRules2(input)
@@ -197,15 +237,13 @@ func convertFile2(input string, hash string, output string) {
 	}
 
 	// update the resource
-	setResource(hash, resource)
+	// setResource(hash, resource)
 }
 
-func convertFile(input string, hash string, output string) {
+func convertFile(input string, hash string) {
 	// run conversion rules on the input file to produce output
-	resource, ok := getResource(hash)
-	if !ok {
-		panic("Resource lookup failed in cache.go!")
-	}
+	resource := getCreateResource(input, hash)
+	output := resource.outputName
 
 	// find the first matching configuration rule
 	match, command, tag, found := matchConfigRules(input)
@@ -273,7 +311,7 @@ func convertFile(input string, hash string, output string) {
 	}
 
 	// update the resource
-	setResource(hash, resource)
+	// setResource(hash, resource)
 }
 
 func Page(w *http.ResponseWriter) {
@@ -292,6 +330,32 @@ func Page(w *http.ResponseWriter) {
 	}
 }
 
+func convert(input string, ch chan *Resource) {
+	// TODO: use the file.ToLower() rather than hashing
+	hash := makeHash(input)
+
+	cache.lock.Lock()
+	cache.current = hash
+	resource, ok := cache.lookup[hash]
+	cache.lock.Unlock()
+	if ok {
+		ch <- resource
+	}
+
+	time.Sleep(5 * time.Second)
+	ch <- nil
+
+	// resource := Resource{
+	// 	false,
+	// 	file,
+	// 	hash,
+	// 	"",
+	// 	preview,
+	// 	"",
+	// 	""
+	// }
+}
+
 func Update(w *http.ResponseWriter, r *http.Request) {
 	// select a new file to display
 
@@ -300,16 +364,42 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&params)
 	util.CheckPanicOld(err)
 
-	// set the current file to display
-	file := params["file"]
-	hash := makeHash(file)
+	// set the current input to display
+	input := params["file"]
+
+	// convert file to html-native
+	ch := make(chan *Resource)
+	go func() {
+		convert(input, ch)
+	}()
+
+	// respond with { state: updated }
+	body := map[string]template.HTML{
+		"state": "updated",
+	}
+	util.RespondJson(w, body)
+
+	// generate page from template
+	// t, err := template.New("page").Parse(PageTemplate)
+	// util.CheckPanicOld(err)
+	// t.Execute(*w, data)
+
+	// wait for convert()
+	resource := <-ch
+	if resource == nil {
+		log.Printf("error converting file: %v", input)
+		return
+	}
+	cache.lock.Lock()
+	cache.lookup[resource.inputNameHash] = resource
+	cache.lock.Unlock()
 
 	// res, ok := getResource(hash)
 	// fmt.Println(res)
 	// fmt.Println(ok)
 
 	// TODO: reuse existing preview files if possible
-	preview := createResource(file, hash)
+	// preview := createResource(file, hash)
 
 	// if preview == "" {
 	// 	// TODO: handle this case better
@@ -323,36 +413,33 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	// }
 
 	// perform file conversion concurrently to complete the resource
-	go convertFile(file, hash, preview)
-	// go convertFile2(file, hash, preview)
+	// go convertFile(file, hash)
+	// convertFile(file, hash)
+
+	// go convertFile2(file, hash)
+	// convertFile2(file, hash)
 
 	// update the resource
 	// setResource(hash, resource)
-	setCurrentHash(hash)
-
-	// respond with { state: updated }
-	body := map[string]template.HTML{
-		"state": "updated",
-	}
-	util.RespondJson(w, body)
+	// setCurrentHash(hash)
 }
 
 func File(w *http.ResponseWriter, r *http.Request) {
-	// serve the requested file by hash
-	path := strings.ReplaceAll(r.URL.Path, "{document.location.href}", "")
-	hash := strings.ReplaceAll(path, "/", "")
-	resource, ok := getResource(hash)
-	if !ok {
-		// resource is not ready yet
-		http.ServeFile(*w, r, "")
-	}
+	// // serve the requested file by hash
+	// path := strings.ReplaceAll(r.URL.Path, "{document.location.href}", "")
+	// hash := strings.ReplaceAll(path, "/", "")
+	// resource, ok := getResource(hash)
+	// if !ok {
+	// 	// resource is not ready yet
+	// 	http.ServeFile(*w, r, "")
+	// }
 
-	// serve the output file with extension if it exists rather than the original placeholder temp file
-	file := resource.outputName
-	if resource.outputName != resource.inputName {
-		file = getFileWithExtension(file)
-	}
-	http.ServeFile(*w, r, file)
+	// // serve the output file with extension if it exists rather than the original placeholder temp file
+	// file := resource.outputName
+	// if resource.outputName != resource.inputName {
+	// 	file = getFileWithExtension(file)
+	// }
+	// http.ServeFile(*w, r, file)
 }
 
 func Status(w *http.ResponseWriter) {
