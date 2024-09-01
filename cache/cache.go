@@ -1,9 +1,11 @@
 package cache
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,7 +15,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
@@ -94,63 +95,102 @@ func generateOutputFilename(input string, entries []string) string {
 			return strings.Replace(entry, "{output}", input, -1)
 		}
 	}
-
-	return ""
+	return input
 }
 
-func runAndWait(input string, output string, match string, command []string) (string, int, error) {
-	cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
-	out, err := exec.Command(cmd, args...).CombinedOutput()
+func runAndWait(resource *Resource, rule conversionRule) int {
+	cmd, args := util.FormatCommand(rule.cmd,
+		map[string]string{
+			"{input}":  resource.input,
+			"{output}": resource.output,
+		})
+
+	command := exec.Command(cmd, args...)
+	var stdoutBuffer bytes.Buffer
+	var stderrBuffer bytes.Buffer
+	stdoutWriter := io.MultiWriter(os.Stdout, &stdoutBuffer)
+	stderrWriter := io.MultiWriter(os.Stderr, &stderrBuffer)
+	command.Stdout = stdoutWriter
+	command.Stderr = stderrWriter
+
 	exit := 0
-	if exitError, ok := err.(*exec.ExitError); ok {
-		exit = exitError.ExitCode()
+	err := command.Run()
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exit = exitError.ExitCode()
+		}
 	}
-	combined := fmt.Sprintf("  Match: %v\n", match)
-	combined += fmt.Sprintf("Command: %v\n", command)
-	combined += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
-	combined += string(out)
-	return combined, exit, err
+
+	resource.stdout = stdoutBuffer.String()
+	resource.stderr = stderrBuffer.String()
+
+	return exit
 }
 
 type Resource struct {
 	input     string // {input}
 	inputHash string
 	output    string // {output}
-	stdOutErr string
+	outputExt string // {outputExt}
 	html      string
 	htmlHash  string
-	// stdout         string
-	// stderr         string
+	stdout    string // {stdout}
+	stderr    string // {stderr}
 }
 
-// func serveCommand(key string, resource Resource, input string, output string, hash string, rule conversionRule) bool {
+func serveRaw(resource *Resource, rule conversionRule) bool {
+	// display the first part of the raw file
+	resource.html = formatRawFileElement(resource.input)
+	resource.htmlHash = makeHash(resource.html)
+
+	return true
+}
+
+func serveInput(resource *Resource, rule conversionRule) bool {
+	if len(rule.html) == 0 {
+		return false
+	}
+
+	// serve the original input file
+	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+resource.inputHash)
+	resource.htmlHash = makeHash(resource.html)
+
+	return true
+}
+
 func serveCommand(resource *Resource, rule conversionRule) bool {
 	if len(rule.cmd) == 0 {
 		return false
 	}
 
 	// run the command and wait for it to complete
-	combined, exit, err := runAndWait(resource.input, resource.output, "", rule.cmd)
-	resource.stdOutErr = combined
-	if exit != 0 || err != nil {
+	exit := runAndWait(resource, rule)
+	if exit != 0 {
 		return false
 	}
 
-	// generate output filename
-	// TODO: complain if not found
-	file := generateOutputFilename(resource.output, rule.cmd)
-
 	// if the conversion succeeds...
+
+	// generate output filename
+	resource.outputExt = generateOutputFilename(resource.output, rule.cmd)
+
+	// replace html placeholders
 	html := rule.html
 	html = strings.ReplaceAll(html, "{output}", resource.output)
-	html = strings.ReplaceAll(html, "{file}", file)
+	html = strings.ReplaceAll(html, "{file}", resource.outputExt)
 	html = strings.ReplaceAll(html, "{url}", "{document.location.href}"+resource.inputHash)
+	html = strings.ReplaceAll(html, "{stdout}", resource.stdout)
+	html = strings.ReplaceAll(html, "{stderr}", resource.stderr)
 
-	// TODO; support more patterns
-	// html = strings.ReplaceAll(html, "{stdout}", stdout)
-	// html = strings.ReplaceAll(html, "{stderr}", stderr)
-	// html = strings.ReplaceAll(html, "{content}", content)
+	// replace {content} with the contents of {file}
+	b, err := os.ReadFile(resource.outputExt)
+	if err == nil {
+		log.Printf("error reading content of %s: % v", resource.outputExt, err)
+	} else {
+		html = strings.ReplaceAll(html, "{content}", string(b))
+	}
 
+	// save output html
 	resource.html = html
 	resource.htmlHash = makeHash(resource.html)
 
@@ -178,17 +218,18 @@ func convert(input string, ch chan *Resource) {
 	// TODO: use the file.ToLower() rather than hashing
 	inputHash := makeHash(input)
 
+	// find and return the resource if it already exists
 	cache.lock.Lock()
 	cache.currentHash = inputHash
 	resource, ok := cache.lookup[inputHash]
 	cache.lock.Unlock()
 	if ok {
-		log.Println("gotcha")
 		ch <- resource
 		return
 	}
 
-	resource = &Resource{input, inputHash, createPreviewFile(), "", "", ""}
+	// create a new resource
+	resource = &Resource{input, inputHash, createPreviewFile(), input, "", "", "", ""}
 
 	// find the first matching configuration rule
 	_, rules := matchConversionRules(input)
@@ -204,189 +245,14 @@ func convert(input string, ch chan *Resource) {
 	rule := rules[0]
 	fmt.Println(rule)
 
-	serveCommand(resource, rule)
+	b := serveCommand(resource, rule) || serveInput(resource, rule) || serveRaw(resource, rule)
+	if !b {
+		log.Printf("error generating output")
+	}
 
-	///
-
-	time.Sleep(30 * time.Second)
+	// time.Sleep(30 * time.Second)
 	ch <- resource
-
-	// if serveCommand(key, resource, input, output, hash, rule) ||
-	// 	serveInput(key, resource, input, output, hash, rule) {
-	// 	// serve_raw(key, idx, resource, input, hash, rule)
-	// 	fmt.Println("sucess")
-	// }
-
 }
-
-///
-
-///
-
-// func matchConfigRules(file string) (string, []string, string, bool) {
-// 	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
-// 	mimetype := strings.ToLower(GetMimeType(file))
-// 	_, rules := config.Rules()
-
-// 	for _, rule := range rules {
-// 		match := ""
-// 		_, exts := rule.Ext.Strings()
-// 		_, mimes := rule.Mime.Strings()
-// 		if len(extension) > 0 && len(exts) > 0 && util.Find(exts, extension) < len(exts) {
-// 			match = fmt.Sprintf("ext: %v", exts)
-// 		} else if len(mimetype) > 0 && len(mimes) > 0 && util.Find(mimes, mimetype) < len(mimes) {
-// 			match = fmt.Sprintf("mime: %v", mimes)
-// 		}
-// 		if len(match) > 80 {
-// 			match = match[:util.Min(len(match), 80)] + "...]"
-// 		}
-// 		if match != "" {
-// 			_, cmds := rule.Cmd.Strings()
-// 			_, html := rule.Html.String()
-// 			return match, cmds, html, true
-// 		}
-// 	}
-
-// 	return "", []string{}, "", false
-// }
-
-// func runAndWait2(input string, output string, match string, command []string) (string, int, error) {
-// 	cmd, args := util.FormatCommand(command, map[string]string{"{input}": input, "{output}": output})
-// 	out, err := exec.Command(cmd, args...).CombinedOutput()
-// 	exit := 0
-// 	if exitError, ok := err.(*exec.ExitError); ok {
-// 		exit = exitError.ExitCode()
-// 	}
-// 	// combined := fmt.Sprintf("  Match: %v\n", match)
-// 	combined := fmt.Sprintf("Command: %v\n", command)
-// 	combined += fmt.Sprintf("    Run: %s %s\n\n", cmd, strings.Trim(fmt.Sprintf("%v", args), "[]"))
-// 	combined += string(out)
-// 	return combined, exit, err
-// }
-
-// func serveInput(key string, resource Resource, input string, output string, hash string, rule conversionRule) bool {
-// 	// if the rule doesn't provide a command, serve the original input file
-// 	if len(rule.html) == 0 {
-// 		// if the rule doesn't provide a tag, display the first part of the raw file
-// 		resource.html = formatRawFileElement(input)
-// 		resource.htmlHash = makeHash(resource.html)
-
-// 	} else {
-// 		// otherwise, use the provided tag
-// 		resource.outputName = resource.inputName
-// 		resource.html = strings.Replace(rule.html, "{url}", "{document.location.href}"+hash, 1)
-// 		resource.htmlHash = makeHash(resource.html)
-
-// 	}
-
-// 	return true
-// }
-
-// func convertFile2(input string, hash string) {
-// 	// run conversion rules on the input file to produce output
-// 	resource := getCreateResource(input, hash)
-// 	// if !ok {
-// 	// 	panic("Resource lookup failed in cache.go!")
-// 	// }
-
-// 	output := resource.inputName
-
-// 	// find the first matching configuration rule
-// 	key, rules := matchConversionRules2(input)
-// 	if len(rules) == 0 {
-// 		// no matching rule found, so display the first part of the raw file
-// 		resource.html = formatRawFileElement(input)
-// 		resource.htmlHash = makeHash(resource.html)
-
-// 		return
-// 	}
-
-// 	// apply the first matching rule
-// 	rule := rules[0]
-
-// 	if serveCommand(key, resource, input, output, hash, rule) ||
-// 		serveInput(key, resource, input, output, hash, rule) {
-// 		// serve_raw(key, idx, resource, input, hash, rule)
-// 		fmt.Println("sucess")
-// 	}
-
-// 	// update the resource
-// 	// setResource(hash, resource)
-// }
-
-// func convertFile(input string, hash string) {
-// 	// run conversion rules on the input file to produce output
-// 	resource := getCreateResource(input, hash)
-// 	output := resource.outputName
-
-// 	// find the first matching configuration rule
-// 	match, command, tag, found := matchConfigRules(input)
-// 	if !found {
-// 		// no matching rule found, so display the first part of the raw file
-// 		resource.html = formatRawFileElement(input)
-// 		resource.htmlHash = makeHash(resource.html)
-
-// 	} else {
-// 		if len(command) == 0 {
-// 			// if the rule doesn't provide a command, serve the original input file
-// 			if len(tag) == 0 {
-// 				// if the rule doesn't provide a tag, display the first part of the raw file
-// 				resource.html = formatRawFileElement(input)
-// 				resource.htmlHash = makeHash(resource.html)
-
-// 			} else {
-// 				// otherwise, use the provided tag
-// 				resource.outputName = resource.inputName
-// 				resource.html = strings.Replace(tag, "{url}", "{document.location.href}"+hash, 1)
-// 				resource.htmlHash = makeHash(resource.html)
-
-// 			}
-// 		} else {
-// 			// run the matching command and wait for it to complete
-// 			combined, exit, err := runAndWait(input, output, match, command)
-// 			resource.combinedOutput = combined
-// 			if exit != 0 || err != nil {
-// 				// if the conversion fails, serve the combined stdout+err text from the console
-// 				resource.html = formatRawStringElement(resource.combinedOutput)
-// 				resource.htmlHash = makeHash(resource.html)
-
-// 			} else {
-// 				hasOutputPlaceholder := util.Find(command, "{output}") < len(command)
-// 				if !hasOutputPlaceholder {
-// 					// if the rule ran but did not provide an {output}, serve the combined stdout+err
-// 					if len(tag) == 0 {
-// 						// if the rule doesn't provide a tag, display the first part of the raw file
-// 						resource.html = formatRawStringElement(resource.combinedOutput)
-// 						resource.htmlHash = makeHash(resource.html)
-
-// 					} else {
-// 						// otherwise, use the provided tag
-// 						resource.outputName = resource.inputName
-// 						resource.html = strings.Replace(tag, "{url}", resource.combinedOutput, 1)
-// 						resource.htmlHash = makeHash(resource.html)
-
-// 					}
-// 				} else {
-// 					// if the rule provided an {output}
-// 					if len(tag) == 0 {
-// 						// if the rule doesn't provide a tag, display the first part of the raw file
-// 						resource.html = formatRawFileElement(getFileWithExtension(output))
-// 						resource.htmlHash = makeHash(resource.html)
-
-// 					} else {
-// 						// if the file conversion succeeds, serve the converted output file
-// 						resource.html = strings.Replace(tag, "{url}", "{document.location.href}"+hash, 1)
-// 						resource.htmlHash = makeHash(resource.html)
-
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	// update the resource
-// 	// setResource(hash, resource)
-// }
 
 func formatCurrentResourceData() map[string]template.HTML {
 	// set default values
@@ -429,22 +295,6 @@ func formatCurrentResourceData() map[string]template.HTML {
 	return data
 }
 
-func Page(w *http.ResponseWriter) {
-	// emit html for the current page
-	data := formatCurrentResourceData()
-
-	// generate page from template
-	t, err := template.New("page").Parse(PageTemplate)
-	util.CheckPanicOld(err)
-
-	// respond with current page html
-	if w != nil {
-		t.Execute(*w, data)
-	} else {
-		t.Execute(os.Stdout, data)
-	}
-}
-
 func Update(w *http.ResponseWriter, r *http.Request) {
 	// select a new file to display
 
@@ -468,40 +318,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	}
 	util.RespondJson(w, body)
 
-	// serve a spinner until ready is true - https://codepen.io/nikhil8krishnan/pen/rVoXJa
-	// _, interval := config.Interval().String()
-	// interval := "5000"
-	// data := map[string]template.HTML{
-	// 	"interval": template.HTML(interval),
-	// }
-	// maps.Copy(data, map[string]template.HTML{
-	// 	"title":    template.HTML(filepath.Base(input)),
-	// 	"html":     template.HTML(SpinnerTemplate),
-	// 	"htmlhash": template.HTML(makeHash(SpinnerTemplate)),
-	// })
-	// t, err := template.New("page").Parse(PageTemplate)
-	// util.CheckPanicOld(err)
-	// t.Execute(*w, data)
-
-	///
-
-	// // emit html for the current page
-	// data := formatCurrentResourceData()
-
-	// // generate page from template
-	// t, err := template.New("page").Parse(PageTemplate)
-	// util.CheckPanicOld(err)
-
-	// // respond with current page html
-	// if w != nil {
-	// 	t.Execute(*w, data)
-	// } else {
-	// 	t.Execute(os.Stdout, data)
-	// }
-
-	///
-
-	// wait for convert()
+	// wait for convert() to finish
 	resource := <-ch
 	if resource == nil {
 		log.Printf("error converting file: %v", input)
@@ -510,35 +327,6 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	cache.lock.Lock()
 	cache.lookup[resource.inputHash] = resource
 	cache.lock.Unlock()
-
-	// res, ok := getResource(hash)
-	// fmt.Println(res)
-	// fmt.Println(ok)
-
-	// TODO: reuse existing preview files if possible
-	// preview := createResource(file, hash)
-
-	// if preview == "" {
-	// 	// TODO: handle this case better
-	// 	log.Panicf("error trying to create resource")
-	// }
-
-	// run conversion rules on the input file to produce output
-	// resource, ok := getResource(hash)
-	// if !ok {
-	// 	panic("Resource lookup failed in cache.go!")
-	// }
-
-	// perform file conversion concurrently to complete the resource
-	// go convertFile(file, hash)
-	// convertFile(file, hash)
-
-	// go convertFile2(file, hash)
-	// convertFile2(file, hash)
-
-	// update the resource
-	// setResource(hash, resource)
-	// setCurrentHash(hash)
 }
 
 func File(w *http.ResponseWriter, r *http.Request) {
@@ -548,20 +336,32 @@ func File(w *http.ResponseWriter, r *http.Request) {
 
 	// look up the current resource if it exists
 	cache.lock.RLock()
+	defer cache.lock.RUnlock()
 	resource, ok := cache.lookup[hash]
-	cache.lock.RUnlock()
 
-	if !ok {
-		// resource is not ready yet
+	if ok {
+		// serve the output file with extenstion
+		http.ServeFile(*w, r, resource.outputExt)
+	} else {
+		// server an empty file
 		http.ServeFile(*w, r, "")
 	}
+}
 
-	// serve the output file with extension if it exists rather than the original placeholder temp file
-	file := resource.output
-	if resource.output != resource.input {
-		file = getFileWithExtension(file)
+func Page(w *http.ResponseWriter) {
+	// emit html for the current page
+	data := formatCurrentResourceData()
+
+	// generate page from template
+	t, err := template.New("page").Parse(PageTemplate)
+	util.CheckPanicOld(err)
+
+	// respond with current page html
+	if w != nil {
+		t.Execute(*w, data)
+	} else {
+		t.Execute(os.Stdout, data)
 	}
-	http.ServeFile(*w, r, file)
 }
 
 func Status(w *http.ResponseWriter) {

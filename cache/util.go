@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/ccammack/cannon/config"
@@ -49,17 +48,17 @@ func isBinaryFile(file string) ([]byte, int, bool) {
 	return b, int(fs.Size()), false
 }
 
-func getFileWithExtension(file string) string {
-	// find the file matching pattern with the longest name
-	matches, err := filepath.Glob(file + "*")
-	util.CheckPanicOld(err)
-	for _, match := range matches {
-		if len(match) > len(file) {
-			file = match
-		}
-	}
-	return file
-}
+// func getFileWithExtension(file string) string {
+// 	// find the file matching pattern with the longest name
+// 	matches, err := filepath.Glob(file + "*")
+// 	util.CheckPanicOld(err)
+// 	for _, match := range matches {
+// 		if len(match) > len(file) {
+// 			file = match
+// 		}
+// 	}
+// 	return file
+// }
 
 func formatRawFileElement(file string) string {
 	bytes, size, _ := isBinaryFile(file)
@@ -83,45 +82,3 @@ func formatRawStringElement(raw string) string {
 	html += "</xmp>"
 	return html
 }
-
-// func formatCurrentResourceData() map[string]template.HTML {
-// 	// return the current resource for display
-
-// 	// set default values
-// 	_, interval := config.Interval().String()
-
-// 	data := map[string]template.HTML{
-// 		"interval": template.HTML(interval),
-// 	}
-
-// 	// look up the current resource if it exists
-// 	// resource, ok := getResource(getCurrentHash())
-// 	resource, ok := Resource{}, false
-// 	if !ok {
-// 		// serve default values until the first resource is added
-// 		html := "<p>Waiting for file...</p>"
-// 		maps.Copy(data, map[string]template.HTML{
-// 			"title":    "Cannon preview",
-// 			"html":     template.HTML(html),
-// 			"htmlhash": template.HTML(makeHash(html)),
-// 		})
-// 	} else {
-// 		if false { //!resource.ready {
-// 			// // serve a spinner until ready is true - https://codepen.io/nikhil8krishnan/pen/rVoXJa
-// 			// maps.Copy(data, map[string]template.HTML{
-// 			// 	"title":    template.HTML(filepath.Base(resource.input)),
-// 			// 	"html":     template.HTML(SpinnerTemplate),
-// 			// 	"htmlhash": template.HTML(makeHash(SpinnerTemplate)),
-// 			// })
-// 		} else {
-// 			// serve the converted output file (or error text on failure)
-// 			maps.Copy(data, map[string]template.HTML{
-// 				"title":    template.HTML(filepath.Base(resource.input)),
-// 				"html":     template.HTML(resource.html),
-// 				"htmlhash": template.HTML(resource.htmlHash),
-// 			})
-// 		}
-// 	}
-
-// 	return data
-// }
