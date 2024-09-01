@@ -1,10 +1,13 @@
 package util
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -129,4 +132,50 @@ func CheckPanic(err error, message string) {
 	if err != nil {
 		log.Panicf("%s: %v", message, err)
 	}
+}
+
+func GetFileLength(filePath string) (int64, error) {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
+}
+
+func GetFileBytes(filePath string, length int64) ([]byte, int64, error) {
+	buffer := make([]byte, length)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return buffer, 0, err
+	}
+	defer file.Close()
+	count, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		return buffer, int64(count), err
+	}
+	return buffer, int64(count), nil
+}
+
+func MakeHash(s string) string {
+	hash := md5.New()
+	hash.Write([]byte(s))
+	hashstr := hex.EncodeToString(hash.Sum(nil))
+	return hashstr
+}
+
+func IsBinaryFile(file string) ([]byte, int, bool) {
+	// treat the file as binary if it contains a NUL in the first 4096 bytes
+	fp, err := os.Open(file)
+	CheckPanicOld(err)
+	fs, err := fp.Stat()
+	CheckPanicOld(err)
+	b := make([]byte, Min(4096, fs.Size()))
+	n, err := fp.Read(b)
+	CheckPanicOld(err)
+	for i := 0; i < n; i++ {
+		if b[i] == '\x00' {
+			return b, int(fs.Size()), true
+		}
+	}
+	return b, int(fs.Size()), false
 }

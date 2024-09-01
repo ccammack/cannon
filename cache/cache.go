@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"html/template"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -61,6 +60,16 @@ type conversionRule struct {
 	html      string
 }
 
+func GetMimeType(file string) string {
+	_, command := config.Mime().Strings()
+	if len(command) > 0 {
+		cmd, args := util.FormatCommand(command, map[string]string{"{input}": file})
+		out, _ := exec.Command(cmd, args...).CombinedOutput()
+		return strings.TrimSuffix(string(out), "\n")
+	}
+	return ""
+}
+
 func matchConversionRules(file string) (string, []conversionRule) {
 	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
 	mimetype := strings.ToLower(GetMimeType(file))
@@ -98,30 +107,25 @@ func generateOutputFilename(input string, entries []string) string {
 }
 
 func runAndWait(resource *Resource, rule conversionRule) int {
-	cmd, args := util.FormatCommand(rule.cmd,
-		map[string]string{
-			"{input}":  resource.input,
-			"{output}": resource.output,
-		})
+	cmd, args := util.FormatCommand(rule.cmd, map[string]string{
+		"{input}":  resource.input,
+		"{output}": resource.output,
+	})
 
+	var outb, errb bytes.Buffer
 	command := exec.Command(cmd, args...)
-	var stdoutBuffer bytes.Buffer
-	var stderrBuffer bytes.Buffer
-	stdoutWriter := io.MultiWriter(os.Stdout, &stdoutBuffer)
-	stderrWriter := io.MultiWriter(os.Stderr, &stderrBuffer)
-	command.Stdout = stdoutWriter
-	command.Stderr = stderrWriter
+	command.Stdout = &outb
+	command.Stderr = &errb
 
 	exit := 0
 	err := command.Run()
+	resource.stdout = outb.String()
+	resource.stderr = errb.String()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			exit = exitError.ExitCode()
 		}
 	}
-
-	resource.stdout = stdoutBuffer.String()
-	resource.stderr = stderrBuffer.String()
 
 	return exit
 }
@@ -137,10 +141,32 @@ type Resource struct {
 	stderr    string // {stderr}
 }
 
+// max display length for unknown file types
+const maxLength = 4096
+
 func serveRaw(resource *Resource, rule conversionRule) bool {
+	length, err := util.GetFileLength(resource.input)
+	if err != nil {
+		log.Printf("error getting length of %s: %v", resource.input, err)
+	}
+
+	bytes, count, err := util.GetFileBytes(resource.input, util.Min(maxLength, length))
+	if err != nil {
+		log.Printf("error reading file %s: %v", resource.input, err)
+	}
+
+	if count == 0 {
+		log.Printf("error reading empty file %s", resource.input)
+	}
+
+	s := string(bytes)
+	if length >= maxLength {
+		s += "\n\n[...]"
+	}
+
 	// display the first part of the raw file
-	resource.html = formatRawFileElement(resource.input)
-	resource.htmlHash = makeHash(resource.html)
+	resource.html = "<xmp>" + s + "</xmp>"
+	resource.htmlHash = util.MakeHash(resource.html)
 
 	return true
 }
@@ -152,7 +178,7 @@ func serveInput(resource *Resource, rule conversionRule) bool {
 
 	// serve the original input file
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+resource.inputHash)
-	resource.htmlHash = makeHash(resource.html)
+	resource.htmlHash = util.MakeHash(resource.html)
 
 	return true
 }
@@ -191,7 +217,7 @@ func serveCommand(resource *Resource, rule conversionRule) bool {
 
 	// save output html
 	resource.html = html
-	resource.htmlHash = makeHash(resource.html)
+	resource.htmlHash = util.MakeHash(resource.html)
 
 	return true
 }
@@ -215,7 +241,7 @@ func createPreviewFile() string {
 
 func convert(input string, ch chan *Resource) {
 	// TODO: use the file.ToLower() rather than hashing
-	inputHash := makeHash(input)
+	inputHash := util.MakeHash(input)
 
 	// find and return the resource if it already exists
 	cache.lock.Lock()
@@ -233,10 +259,8 @@ func convert(input string, ch chan *Resource) {
 	// find the first matching configuration rule
 	_, rules := matchConversionRules(input)
 	if len(rules) == 0 {
-		// no matching rule found, so display the first part of the raw file
-		resource.html = formatRawFileElement(input)
-		resource.htmlHash = makeHash(resource.html)
-
+		// no matching rule found
+		ch <- resource
 		return
 	}
 
@@ -244,6 +268,7 @@ func convert(input string, ch chan *Resource) {
 	rule := rules[0]
 
 	b := serveCommand(resource, rule) || serveInput(resource, rule) || serveRaw(resource, rule)
+	// b := serveRaw(resource, rule)
 	if !b {
 		log.Printf("error generating output")
 	}
@@ -278,7 +303,7 @@ func formatCurrentResourceData() map[string]template.HTML {
 		maps.Copy(data, map[string]template.HTML{
 			"title":    template.HTML(filepath.Base("Loading...")),
 			"html":     template.HTML(SpinnerTemplate),
-			"htmlhash": template.HTML(makeHash(SpinnerTemplate)),
+			"htmlhash": template.HTML(util.MakeHash(SpinnerTemplate)),
 		})
 	} else {
 		// serve default values until the first resource is added
@@ -286,7 +311,7 @@ func formatCurrentResourceData() map[string]template.HTML {
 		maps.Copy(data, map[string]template.HTML{
 			"title":    "Cannon preview",
 			"html":     template.HTML(html),
-			"htmlhash": template.HTML(makeHash(html)),
+			"htmlhash": template.HTML(util.MakeHash(html)),
 		})
 	}
 
