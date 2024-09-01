@@ -3,7 +3,6 @@ package cache
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -243,7 +242,6 @@ func convert(input string, ch chan *Resource) {
 
 	// apply the first matching rule
 	rule := rules[0]
-	fmt.Println(rule)
 
 	b := serveCommand(resource, rule) || serveInput(resource, rule) || serveRaw(resource, rule)
 	if !b {

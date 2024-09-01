@@ -71,14 +71,14 @@ func formatRawFileElement(file string) string {
 	return html
 }
 
-func formatRawStringElement(raw string) string {
-	size := len(raw)
-	bytes := raw[0:util.Min(size, byteLength)]
-	s := string(bytes)
-	html := "<xmp>" + s + "\n\n"
-	if size > byteLength {
-		html += "[...]"
-	}
-	html += "</xmp>"
-	return html
-}
+// func formatRawStringElement(raw string) string {
+// 	size := len(raw)
+// 	bytes := raw[0:util.Min(size, byteLength)]
+// 	s := string(bytes)
+// 	html := "<xmp>" + s + "\n\n"
+// 	if size > byteLength {
+// 		html += "[...]"
+// 	}
+// 	html += "</xmp>"
+// 	return html
+// }

@@ -226,16 +226,16 @@ func Start() {
 			return
 		}
 
-		// update loaded config
-		configLock.Lock()
-		defer configLock.Unlock()
-		config = tmp
-
-		postLoad()
-
 		// notify subscribers
 		for _, callback := range callbacks {
 			callback("reload")
 		}
+
+		// update loaded config
+		configLock.Lock()
+		config = tmp
+		configLock.Unlock()
+
+		postLoad()
 	})
 }
