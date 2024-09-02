@@ -109,13 +109,13 @@ func matchConversionRules(file string) (string, []conversionRule) {
 // }
 
 func findMatchingOutputFile(output string) string {
-	// find newly created files that match {output}*
+	// find newly created files that match output*
 	matches, err := filepath.Glob(output + "*")
 	if err != nil {
 		log.Printf("error matching filename %s: %v", output, err)
 	}
-	if len(matches) > 1 {
-		log.Printf("error matched more than one filename %s %v", output, matches)
+	if len(matches) > 2 {
+		log.Printf("error matched too many files for %s: %v", output, matches)
 	}
 	for _, match := range matches {
 		if len(match) > len(output) {
@@ -253,9 +253,7 @@ func serveCommand(resource *Resource, rule conversionRule) bool {
 
 	// replace {content} with the contents of {outputext}
 	b, err := os.ReadFile(resource.outputExt)
-	if err == nil {
-		log.Printf("error reading content of %s: % v", resource.outputExt, err)
-	} else {
+	if err != nil {
 		html = strings.ReplaceAll(html, "{content}", string(b))
 	}
 
