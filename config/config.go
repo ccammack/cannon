@@ -93,6 +93,7 @@ func optionalStrings(s string, ko *koanf.Koanf) gen.Pair {
 
 func Port() gen.Pair     { return requiredInt("port", config) }
 func Interval() gen.Pair { return requiredInt("interval", config) }
+func Timeout() gen.Pair  { return requiredInt("timeout", config) }
 func Exit() gen.Pair     { return requiredInt("exit", config) }
 func Mime() gen.Pair     { return requiredStrings("mime", config) }
 func Browser() gen.Pair  { return optionalStrings("browser", config) }
@@ -166,6 +167,7 @@ func postLoad() {
 	// check required fields
 	Port()
 	Interval()
+	Timeout()
 
 	// make sure configured executables exist
 	_, mime := Mime().Strings()

@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"html/template"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
@@ -97,13 +99,30 @@ func matchConversionRules(file string) (string, []conversionRule) {
 	return rulesk, matches
 }
 
-func generateOutputFilename(input string, entries []string) string {
-	for _, entry := range entries {
-		if strings.Contains(entry, "{output}") {
-			return strings.Replace(entry, "{output}", input, -1)
+// func generateOutputFilename(input string, entries []string) string {
+// 	for _, entry := range entries {
+// 		if strings.Contains(entry, "{output}") {
+// 			return strings.Replace(entry, "{output}", input, -1)
+// 		}
+// 	}
+// 	return input
+// }
+
+func findMatchingOutputFile(output string) string {
+	// find newly created files that match {output}*
+	matches, err := filepath.Glob(output + "*")
+	if err != nil {
+		log.Printf("error matching filename %s: %v", output, err)
+	}
+	if len(matches) > 1 {
+		log.Printf("error matched more than one filename %s %v", output, matches)
+	}
+	for _, match := range matches {
+		if len(match) > len(output) {
+			output = match
 		}
 	}
-	return input
+	return output
 }
 
 func runAndWait(resource *Resource, rule conversionRule) int {
@@ -112,16 +131,34 @@ func runAndWait(resource *Resource, rule conversionRule) int {
 		"{output}": resource.output,
 	})
 
+	// timeout
+	_, timeout := config.Timeout().Int()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Millisecond)
+	defer cancel()
+
+	// prepare command
 	var outb, errb bytes.Buffer
-	command := exec.Command(cmd, args...)
+	command := exec.CommandContext(ctx, cmd, args...)
 	command.Stdout = &outb
 	command.Stderr = &errb
 
-	exit := 0
+	// run command
 	err := command.Run()
 	resource.stdout = outb.String()
 	resource.stderr = errb.String()
+
+	// fail if the command takes too long
+	if ctx.Err() == context.DeadlineExceeded {
+		return 255
+	}
+
+	// collect and return exit code
+	exit := 0
 	if err != nil {
+		// there was an error
+		exit = 255
+
+		// extract the actual error
 		if exitError, ok := err.(*exec.ExitError); ok {
 			exit = exitError.ExitCode()
 		}
@@ -144,7 +181,7 @@ type Resource struct {
 // max display length for unknown file types
 const maxLength = 4096
 
-func serveRaw(resource *Resource, rule conversionRule) bool {
+func serveRaw(resource *Resource) bool {
 	length, err := util.GetFileLength(resource.input)
 	if err != nil {
 		log.Printf("error getting length of %s: %v", resource.input, err)
@@ -172,11 +209,17 @@ func serveRaw(resource *Resource, rule conversionRule) bool {
 }
 
 func serveInput(resource *Resource, rule conversionRule) bool {
+	// serve the command if available
+	if len(rule.cmd) != 0 {
+		return false
+	}
+
+	// serve raw if missing html
 	if len(rule.html) == 0 {
 		return false
 	}
 
-	// serve the original input file
+	// replace placeholders
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+resource.inputHash)
 	resource.htmlHash = util.MakeHash(resource.html)
 
@@ -184,30 +227,31 @@ func serveInput(resource *Resource, rule conversionRule) bool {
 }
 
 func serveCommand(resource *Resource, rule conversionRule) bool {
+	// serve raw if missing command
 	if len(rule.cmd) == 0 {
 		return false
 	}
 
-	// run the command and wait for it to complete
+	// run the command and wait
 	exit := runAndWait(resource, rule)
 	if exit != 0 {
+		// serve raw on command failure
 		return false
 	}
 
-	// if the conversion succeeds...
-
 	// generate output filename
-	resource.outputExt = generateOutputFilename(resource.output, rule.cmd)
+	// resource.outputExt = generateOutputFilename(resource.output, rule.cmd)
+	resource.outputExt = findMatchingOutputFile(resource.output)
 
 	// replace html placeholders
 	html := rule.html
 	html = strings.ReplaceAll(html, "{output}", resource.output)
-	html = strings.ReplaceAll(html, "{file}", resource.outputExt)
+	html = strings.ReplaceAll(html, "{outputext}", resource.outputExt)
 	html = strings.ReplaceAll(html, "{url}", "{document.location.href}"+resource.inputHash)
 	html = strings.ReplaceAll(html, "{stdout}", resource.stdout)
 	html = strings.ReplaceAll(html, "{stderr}", resource.stderr)
 
-	// replace {content} with the contents of {file}
+	// replace {content} with the contents of {outputext}
 	b, err := os.ReadFile(resource.outputExt)
 	if err == nil {
 		log.Printf("error reading content of %s: % v", resource.outputExt, err)
@@ -260,20 +304,16 @@ func convert(input string, ch chan *Resource) {
 	_, rules := matchConversionRules(input)
 	if len(rules) == 0 {
 		// no matching rule found
-		ch <- resource
-		return
+		serveRaw(resource)
+	} else {
+		// apply the first matching rule
+		rule := rules[0]
+
+		if !serveInput(resource, rule) && !serveCommand(resource, rule) && !serveRaw(resource) {
+			log.Printf("error serving resource: %v", resource)
+		}
 	}
 
-	// apply the first matching rule
-	rule := rules[0]
-
-	b := serveCommand(resource, rule) || serveInput(resource, rule) || serveRaw(resource, rule)
-	// b := serveRaw(resource, rule)
-	if !b {
-		log.Printf("error generating output")
-	}
-
-	// time.Sleep(30 * time.Second)
 	ch <- resource
 }
 
