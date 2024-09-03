@@ -98,11 +98,37 @@ func Exit() gen.Pair     { return requiredInt("exit", config) }
 func Mime() gen.Pair     { return requiredStrings("mime", config) }
 func Browser() gen.Pair  { return optionalStrings("browser", config) }
 
+type FileConversionDep struct {
+	Apps gen.Pair
+	Desc gen.Pair
+}
+
+func Deps() (string, []FileConversionDep) {
+	// collect the list of required applications
+	key, err := key("deps", config)
+	if err != nil {
+		return "", nil
+	}
+
+	configLock.RLock()
+	defer configLock.RUnlock()
+
+	// clone the the rules
+	deps := []FileConversionDep{}
+	for _, v := range config.Slices(key) {
+		apps := optionalStrings("apps", v)
+		desc := optionalString("desc", v)
+		deps = append(deps, FileConversionDep{apps, desc})
+	}
+
+	// TODO: make Deps() return a gen.Pair
+	// return gen.Pair{K: key, V: rules}
+	return key, deps
+}
+
 type FileConversionRule struct {
 	Ext  gen.Pair
 	Mime gen.Pair
-	Deps gen.Pair
-	Desc gen.Pair
 	Cmd  gen.Pair
 	Html gen.Pair
 }
@@ -122,13 +148,11 @@ func Rules() (string, []FileConversionRule) {
 	for _, v := range config.Slices(key) {
 		ext := optionalStrings("ext", v)
 		mime := optionalStrings("mime", v)
-		deps := optionalStrings("deps", v)
 		cmd := optionalStrings("cmd", v)
 
-		desc := optionalString("desc", v)
 		html := optionalString("html", v)
 
-		rules = append(rules, FileConversionRule{ext, mime, deps, desc, cmd, html})
+		rules = append(rules, FileConversionRule{ext, mime, cmd, html})
 	}
 
 	// TODO: make Rules() return a gen.Pair
@@ -181,15 +205,15 @@ func Validate() {
 		requiredExe(browser[0])
 	}
 
-	// validate the specified conversion rules
-	rulesk, rulesv := Rules()
-	for idx, rule := range rulesv {
+	// validate the specified deps
+	depsk, depsv := Deps()
+	for idx, rule := range depsv {
 		usage := false
-		depsk, depsv := rule.Deps.Strings()
-		for _, dep := range depsv {
-			err := optionalExe(dep)
+		appsk, appsv := rule.Apps.Strings()
+		for _, app := range appsv {
+			err := optionalExe(app)
 			if err != nil {
-				log.Printf("error finding %s[%d].%s[%s]: %v", rulesk, idx, depsk, dep, err)
+				log.Printf("error finding %s[%d].%s[%s]: %v", depsk, idx, appsk, app, err)
 				usage = true
 			}
 		}
