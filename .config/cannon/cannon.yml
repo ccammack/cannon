@@ -1,100 +1,150 @@
 
-settings:
-  # specify server address and port (select an unused port above 1023)
-  server: http://localhost
-  port: 8888
+# all keys in this file may be prefixed to define per-platform and per-host values
+#
+#     use os.<goos>.<key> to set per-OS values using $GOOS: https://go.dev/doc/install/source#environment
+#     use host.<name>.<key> to set per-host values using the lowercase hostname
+#         port:            8888
+#         os.windows.port: 7777
+#         host.hal9k.port: 9999
+#
+#     at runtime, the most-specific matching key that exists will be used: host.*.key > os.*.key > key
 
-  # specify command and args to start the preview browser
-  #     use browser.default to specify the default command for all platforms
-  #     use browser.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
-  #     specify the {url} placeholder arg in the correct position so cannon can insert the server url
-  #     specify the appropriate argument for the browser to enable auto-play for media previews
-  #     on Windows, it may be required to specify the full path to the command
-  browser:
-    default: ['google-chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
-    windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
+# specify server port
+port: 8888
 
-  # browser polling time in milliseconds
-  interval: 33
+# specify browser polling time in milliseconds
+interval: 33
 
-  # specify command and args to detect a file's mime-type
-  #     use mime.default to specify the default command for all platforms
-  #     use mime.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
-  #     specify the {input} placeholder arg in the correct position so cannon can insert the selected file
-  #     on Windows, it may be required to specify the full path to the command
-  mime:
-    default: ['file', '-b', '--mime-type', '{input}']
-    windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{input}']
+# specify file conversion timeout in milliseconds
+#     if a file conversion takes too long, just display the raw file data instead
+timeout: 500
 
-  # cannon will set this exit value at the command line: $ cannon <file>
-  #     lf requires a non-zero return value to prevent it from trying to cache the preview
-  exit: 255
+# define the exit value to be used when displaying a file at the command line: $ cannon <file>
+#     this exists because lf attempts to cache the preview unless the previewer returns a non-zero exit code
+exit: 255
 
-file_conversion_rules:
-  #
-  # specify rules to convert each file type into its web-equivalent for display in the browser
-  #    ext|mime: specify patterns to match either the file extension or mime type
-  #     command: specify the file conversion command to run when a matching input file is found
-  #              use command.default to specify the default command
-  #              use command.<platform> to specify per-platform exceptions using the names in the $GOOS list: https://go.dev/doc/install/source#environment
-  #              specify {input} and {output} placeholders in the right positions so cannon can insert the filenames
-  #              the output param may specify an extension: {output}.jpg
-  #              on Windows, it may be required to specify the full path to the command
-  #         tag: specify the html tag to display the output file in the browser
-  #              specify the {url} placeholder arg in the correct position so cannon can insert the converted file
-  #
+# define the logfile ($ tail -f <logfile>)
+#logfile:            /tmp/cannon.log
+#os.windows.logfile: C:/tmp/cannon.log
 
-  - # native html5 image formats do not need conversion
-    ext: [apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp]
-    tag: <img src='{url}'>
+# specify command and args to start the preview browser
+#     use "browser: []" to prevent the browser from starting when running over SSH
+#     specify the '{url}' placeholder arg in the correct position so cannon can insert the server url
+#     specify the appropriate argument for the browser to enable auto-play for faster media previews
+browser:            [ google-chrome,                                         --autoplay-policy=no-user-gesture-required, '{url}' ]
+os.windows.browser: [ C:/Program Files/Google/Chrome/Application/chrome.exe, --autoplay-policy=no-user-gesture-required, '{url}' ]
 
-  - # native html5 video formats do not need conversion
-    ext: [mp4, ogg, ogv, webm]
-    tag: <video autoplay loop controls src='{url}'>
+# specify command and args to detect the input file's mime-type
+#     specify the '{input}' placeholder arg in the correct position so cannon can insert the selected file
+mime:            [ file,                                                  -b, --mime-type, '{input}' ]
+os.windows.mime: [ C:/Users/ccammack/scoop/apps/git/current/usr/bin/file, -b, --mime-type, '{input}' ]
 
-  - # native html5 audio formats do not need conversion
-    ext: [mp3, wav]
-    tag: <audio autoplay loop controls src='{url}'>
+# deps: (optional) specify the command line applications required to perform file conversions
+#     the existence of each application will be validated on --start and the missing ones will be logged
+#     apps: specify a list of executable names or full paths
+#     desc: specify a note to help the user find and install the apps[]
+deps:
+  - ################################################################
+    # imagemagick
+    apps:            [ convert ]
+    os.windows.apps: [ magick ]
 
-  - # native html5 text formats do not need conversion
-    ext: [html, htm]
-    tag: <iframe src='{url}'>
+    desc:            https://imagemagick.org ($ sudo apt install imagemagick)
+    os.windows.desc: https://imagemagick.org (> scoop install imagemagick)
 
-  - # use image magick to convert non-native image formats
-    mime: [image]
-    command:
-      default: ['convert', '{input}', '{output}.jpg']
-      windows: ['magick', 'convert', '{input}', '{output}.jpg']
-    tag: <img src='{url}'>
+  - ################################################################
+    # mupdf
+    apps: [ mutool ]
+    desc: https://mupdf.com
 
-  - # use mupdf to sample the first page of common document formats
-    ext: [pdf, xps, cbz, epub, fb2]
-    command:
-      default: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
-      windows: ['mutool', 'convert', '-o', '{output}.png', '{input}', '1']
-    tag: <img src='{url}'>
+  - ################################################################
+    # ffmpeg
+    apps: [ ffmpeg ]
+    desc: https://ffmpeg.org
 
-  - # use ffmpeg to sample the first keyframe of non-native video files
-    mime: [video]
-    command:
-      default: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
-      windows: ['ffmpeg', '-skip_frame', 'nokey', '-i', '{input}', '-frames:v', '1', '{output}.jpg']
-    tag: <img src='{url}'>
+  - ################################################################
+    # chroma
+    apps: [ chroma ]
+    desc: https://github.com/alecthomas/chroma/releases (download/extract into the $PATH)
 
-  - # use ffmpeg to sample the first few seconds of non-native audio files
-    mime: [audio]
-    command:
-      default: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
-      windows: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
-    tag: <audio autoplay loop controls src='{url}'>
+# specify rules to convert each file type into its web equivalent for display in the browser
+#     completely independent rule sets can be defined using os.<goos>.rules and host.<name>.rules
+#     rule sets are evaluated in order from top to bottom and the first matching rule will run
+#     each entry in the rule set uses the keys described below
+#     keys can be overloaded using os.<goos>.key and host.<name>.key to handle special cases
+#
+#     ext|mime: specify patterns to match either the file extension or mime type
+#          cmd: specify the file conversion command to run when a matching input file is found
+#               specify '{input}' and '{output}' placeholders in the right positions so cannon can insert the filenames
+#               the output param may specify an extension: '{output}.jpg'
+#         html: specify the html fragment to display the output in the browser
+#               the html fragment supports several placeholders
+#               use '{url}' for elements that use src= references
+#               use '{stdout}|{stderr}|{content}' to insert the results of the file conversion directly
+rules:
+  - ################################################################
+    # native image extensions
+    ext:  [ apng, avif, gif, jpg, jpeg, jfif, pjpeg, pjp, png, svg, webp ]
+    html: <img src='{url}'>
 
-#  - # display bookmark files in an iframe
-#    ext: [url]
-#    command:
-#      default: ['sed', '-n', 's/^URL=//p', '{input}']
-#      windows: ['Powershell', '-Command', '&{(Get-Content "{input}") -match "URL=" -replace "URL=",""}']
-#    tag: <iframe src='{stdout}'>
+  - ################################################################
+    # native video extensions
+    ext:  [ mp4, ogg, ogv, webm ]
+    html: <video autoplay loop controls src='{url}'>
 
-  - # raw text files do not need conversion
-    mime: [text]
-    tag: <iframe src='{url}'>
+  - ################################################################
+    # native audio extensions
+    ext:  [ mp3, wav ]
+    html: <audio autoplay loop controls src='{url}'>
+
+  - ################################################################
+    # native text extensions
+    ext:  [ html, htm ]
+    html: <iframe src='{url}'>
+
+  - ################################################################
+    # non-native image types
+    mime: [ image ]
+
+    # use imagemagick to convert images
+    # run 'convert' on most platforms ('magick convert' on windows)
+    cmd:            [         convert, '{input}', '{output}.jpg' ]
+    os.windows.cmd: [ magick, convert, '{input}', '{output}.jpg' ]
+
+    html: <img src='{url}'>
+
+  - ################################################################
+    # common document extensions
+    ext:  [ pdf, xps, cbz, epub, fb2 ]
+
+    # use mupdf to convert the first page into an image
+    cmd:  [ mutool, convert, -o, '{output}.png', '{input}', 1 ]
+
+    html: <img src='{url}'>
+
+  - ################################################################
+    # non-native video types
+    mime: [ video ]
+
+    # use ffmpeg to convert the first keyframe into an image
+    cmd:  [ ffmpeg, -skip_frame, nokey, -i, '{input}', -frames:v, 1, '{output}.jpg' ]
+
+    html: <img src='{url}'>
+
+  - ################################################################
+    # non-native audio types
+    mime: [ audio ]
+
+    # use ffmpeg to sample the first few seconds of audio
+    cmd:  [ ffmpeg, -ss, 0, -i, '{input}', -t, 3, '{output}.wav' ]
+
+    html: <audio autoplay loop controls src='{url}'>
+
+  - ################################################################
+    # default text types
+    mime: [ text ]
+
+    # use 'chroma' for syntax highlighting
+    cmd: [ chroma, '{input}', --html, --style, colorful, --html-only, --html-inline-styles ]
+
+    html: <div>{stdout}</div>
