@@ -21,19 +21,16 @@ var (
 	server *http.Server
 )
 
-func ServerIsRunnning() (int, error) {
-	_, port := config.Port().Int()
-	if err := pid.IsRunning(); err != nil {
-		return port, err
-	}
-	return port, nil
-}
+// func ServerIsRunnning() (int, error) {
+// 	_, port := config.Port().Int()
+// 	if err := pid.IsRunning(); err != nil {
+// 		return port, err
+// 	}
+// 	return port, nil
+// }
 
-func startBrowser() {
-	_, port := config.Port().Int()
-	url := fmt.Sprintf("%s:%d", "http://localhost", port)
+func startBrowser(url string) {
 	_, command := config.Browser().Strings()
-
 	if len(command) > 0 {
 		cmd, args := util.FormatCommand(command, map[string]string{"{url}": url})
 		proc := exec.Command(cmd, args...)
@@ -51,13 +48,19 @@ func Start() {
 		Stop()
 	}()
 
-	// validate server config and watch for changes
+	// watch for config changes
 	config.Start()
 
-	// start the server if the port is not in use
-	port, err := ServerIsRunnning()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot start server: %v\n", err)
+	// log server address
+	_, port := config.Port().Int()
+	url := fmt.Sprintf("http://localhost:%d", port)
+	log.Printf("starting server: %s", url)
+
+	// start the server
+	// _, err := ServerIsRunnning()
+	// if err != nil {
+	if err := pid.IsRunning(); err != nil {
+		log.Printf("cannot start server: %v\n", err)
 		return
 	}
 
@@ -65,34 +68,38 @@ func Start() {
 	pid.Lock()
 
 	// start the local preview browser
-	go startBrowser()
+	go startBrowser(url)
 
-	// log server address
-	url := fmt.Sprintf("http://localhost:%v", port)
-	log.Printf("starting server: %s", url)
+	// validate server config
+	config.Validate()
 
+	// serve files
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", pageHandler)
 	mux.HandleFunc("/status", statusHandler)
 	mux.HandleFunc("/update", updateHandler)
 	mux.HandleFunc("/stop", stopHandler)
-
 	server = &http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
 		Handler: mux,
 	}
-	server.ListenAndServe()
+	if err := server.ListenAndServe(); err != nil {
+		log.Printf("cannot start server: %v", err)
+		return
+	}
 }
 
 func Stop() {
 	// stop the server if the port is already in use
-	port, err := ServerIsRunnning()
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "cannot stop server: %v\n", err)
+	// port, err := ServerIsRunnning()
+	// if err == nil {
+	if err := pid.IsRunning(); err == nil {
+		log.Printf("cannot stop server: %v\n", err)
 		return
 	}
 
-	url := fmt.Sprintf("http://localhost:%v/%s", port, "stop")
+	_, port := config.Port().Int()
+	url := fmt.Sprintf("http://localhost:%d/%s", port, "stop")
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("error stopping server: %v", err)
@@ -108,7 +115,8 @@ func Stop() {
 
 func Toggle() {
 	// stop the server if the port is in use; start it otherwise
-	if _, err := ServerIsRunnning(); err != nil {
+	// if _, err := ServerIsRunnning(); err != nil {
+	if err := pid.IsRunning(); err != nil {
 		Stop()
 	} else {
 		Start()
@@ -117,24 +125,26 @@ func Toggle() {
 
 func Page() {
 	// display the current page HTML for testing
-	if _, err := ServerIsRunnning(); err != nil {
+	// if _, err := ServerIsRunnning(); err != nil {
+	if err := pid.IsRunning(); err != nil {
 		cache.Page(nil)
 	} else {
-		fmt.Fprintf(os.Stderr, "Cannon server is not running. Use --start or --toggle to start it.\n")
+		log.Printf("Cannon server is not running. Use --start or --toggle to start it.\n")
 	}
 }
 
 func Reset() {
 	// reset the connection from the server side to unlock the file so it can be moved/deleted
-	log.Panicln("server.Reset() is not yet implemented")
+	log.Printf("server.Reset() is not yet implemented")
 }
 
 func Status() {
 	// display the server status for testing
-	if _, err := ServerIsRunnning(); err != nil {
+	// if _, err := ServerIsRunnning(); err != nil {
+	if err := pid.IsRunning(); err != nil {
 		cache.Status(nil)
 	} else {
-		fmt.Fprintf(os.Stderr, "Cannon server is not running. Use --start or --toggle to start it.\n")
+		log.Printf("Cannon server is not running. Use --start or --toggle to start it.\n")
 	}
 }
 
@@ -174,7 +184,7 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		if err := server.Shutdown(context.Background()); err != nil {
-			log.Panicf("error stopping server: %v", err)
+			log.Printf("error stopping server: %v", err)
 		}
 	}()
 }

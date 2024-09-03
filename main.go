@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -12,14 +13,12 @@ import (
 
 	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/config"
+	"github.com/ccammack/cannon/pid"
 	"github.com/ccammack/cannon/server"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	// process command line
-	// cmd.Execute()
-
 	// process command line
 	app := &cli.App{
 		Name:     "Cannon",
@@ -48,29 +47,47 @@ in a web browser using a static HTTP server.`,
 		ArgsUsage: "[global options] file",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
-				Name: "start",
-				// Aliases: []string{"s"},
-				Usage: "Start the preview server",
+				Name:    "quiet",
+				Aliases: []string{"q"},
+				Usage:   "Suppress server console output",
+				Action: func(ctx *cli.Context, v bool) error {
+					log.SetOutput(io.Discard)
+					return nil
+				},
+			},
+			&cli.BoolFlag{
+				Name:    "start",
+				Aliases: []string{"s"},
+				Usage:   "Start the preview server",
 				Action: func(ctx *cli.Context, v bool) error {
 					server.Start()
 					return nil
 				},
 			},
 			&cli.BoolFlag{
-				Name: "stop",
-				// Aliases: []string{"p"},
-				Usage: "Stop the preview server",
+				Name:    "stop",
+				Aliases: []string{"p"},
+				Usage:   "Stop the preview server",
 				Action: func(ctx *cli.Context, v bool) error {
 					server.Stop()
 					return nil
 				},
 			},
 			&cli.BoolFlag{
-				Name: "toggle",
-				// Aliases: []string{"t"},
-				Usage: "Toggle the preview server on and off",
+				Name:    "toggle",
+				Aliases: []string{"t"},
+				Usage:   "Toggle the preview server on and off",
 				Action: func(ctx *cli.Context, v bool) error {
 					server.Toggle()
+					return nil
+				},
+			},
+			&cli.BoolFlag{
+				Name:    "reset",
+				Aliases: []string{"r"},
+				Usage:   "Reset the connection to close the current file.",
+				Action: func(ctx *cli.Context, v bool) error {
+					server.Reset()
 					return nil
 				},
 			},
@@ -80,15 +97,6 @@ in a web browser using a static HTTP server.`,
 				Usage: "Display the current page HTML for testing",
 				Action: func(ctx *cli.Context, v bool) error {
 					server.Page()
-					return nil
-				},
-			},
-			&cli.BoolFlag{
-				Name: "reset",
-				// Aliases: []string{"r"},
-				Usage: "Reset the server to close the current file.",
-				Action: func(ctx *cli.Context, v bool) error {
-					server.Reset()
 					return nil
 				},
 			},
@@ -123,9 +131,10 @@ in a web browser using a static HTTP server.`,
 			// fmt.Println(cache.GetMimeType(path))
 
 			// send file path argument to /update endpoint
-			if _, err := server.ServerIsRunnning(); err != nil {
-				_, port := config.Port().String()
-				url := fmt.Sprintf("http://localhost:%s/%s", port, "update")
+			// if _, err := server.ServerIsRunnning(); err != nil {
+			if err := pid.IsRunning(); err != nil {
+				_, port := config.Port().Int()
+				url := fmt.Sprintf("http://localhost:%d/%s", port, "update")
 				postBody, _ := json.Marshal(map[string]string{
 					"file": path,
 				})

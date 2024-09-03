@@ -168,7 +168,9 @@ func postLoad() {
 	Port()
 	Interval()
 	Timeout()
+}
 
+func Validate() {
 	// make sure configured executables exist
 	_, mime := Mime().Strings()
 	if len(mime) != 0 {
