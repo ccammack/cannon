@@ -24,12 +24,12 @@ func main() {
 		Name:     "Cannon",
 		Version:  "v0.0.1",
 		Compiled: time.Now(),
-		// Authors: []*cli.Author{
-		// 	&cli.Author{
-		// 		Name:  "Chris Cammack",
-		// 		Email: "clc1024@hotmail.com",
-		// 	},
-		// },
+		Authors: []*cli.Author{
+			{
+				Name:  "Chris Cammack",
+				Email: "clc1024@hotmail.com",
+			},
+		},
 		Copyright: "(c) 2022 Chris Cammack",
 		HelpName:  "cannon",
 		Usage:     "a browser-based file previewer for terminal file managers",
@@ -131,7 +131,6 @@ in a web browser using a static HTTP server.`,
 			// fmt.Println(cache.GetMimeType(path))
 
 			// send file path argument to /update endpoint
-			// if _, err := server.ServerIsRunnning(); err != nil {
 			if err := pid.IsRunning(); err != nil {
 				_, port := config.Port().Int()
 				url := fmt.Sprintf("http://localhost:%d/%s", port, "update")

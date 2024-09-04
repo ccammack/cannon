@@ -21,14 +21,6 @@ var (
 	server *http.Server
 )
 
-// func ServerIsRunnning() (int, error) {
-// 	_, port := config.Port().Int()
-// 	if err := pid.IsRunning(); err != nil {
-// 		return port, err
-// 	}
-// 	return port, nil
-// }
-
 func startBrowser(url string) {
 	_, command := config.Browser().Strings()
 	if len(command) > 0 {
@@ -57,8 +49,6 @@ func Start() {
 	log.Printf("starting server: %s", url)
 
 	// start the server
-	// _, err := ServerIsRunnning()
-	// if err != nil {
 	if err := pid.IsRunning(); err != nil {
 		log.Printf("cannot start server: %v", err)
 		return
@@ -92,8 +82,6 @@ func Start() {
 
 func Stop() {
 	// stop the server if the port is already in use
-	// port, err := ServerIsRunnning()
-	// if err == nil {
 	if err := pid.IsRunning(); err == nil {
 		log.Printf("cannot stop server: %v", err)
 		return
@@ -116,7 +104,6 @@ func Stop() {
 
 func Toggle() {
 	// stop the server if the port is in use; start it otherwise
-	// if _, err := ServerIsRunnning(); err != nil {
 	if err := pid.IsRunning(); err != nil {
 		Stop()
 	} else {
@@ -126,7 +113,6 @@ func Toggle() {
 
 func Page() {
 	// display the current page HTML for testing
-	// if _, err := ServerIsRunnning(); err != nil {
 	if err := pid.IsRunning(); err != nil {
 		cache.Page(nil)
 	} else {
@@ -151,7 +137,6 @@ func Reset() {
 
 func Status() {
 	// display the server status for testing
-	// if _, err := ServerIsRunnning(); err != nil {
 	if err := pid.IsRunning(); err != nil {
 		cache.Status(nil)
 	} else {
