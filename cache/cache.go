@@ -407,16 +407,16 @@ func File(w *http.ResponseWriter, r *http.Request) {
 
 	if ok {
 		// serve the output file with extension
-		// http.ServeFile(*w, r, resource.outputExt)
+		http.ServeFile(*w, r, resource.outputExt)
 
-		if resource.reader == nil {
-			resource.reader = cancelread.New(resource.outputExt)
-		}
+		// if resource.reader == nil {
+		// 	resource.reader = cancelread.New(resource.outputExt)
+		// }
 
-		if resource.reader != nil {
-			http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
-			return
-		}
+		// if resource.reader != nil {
+		// 	http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+		// 	return
+		// }
 	}
 
 	// serve 404
