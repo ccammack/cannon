@@ -60,7 +60,7 @@ func Start() {
 	// _, err := ServerIsRunnning()
 	// if err != nil {
 	if err := pid.IsRunning(); err != nil {
-		log.Printf("cannot start server: %v\n", err)
+		log.Printf("cannot start server: %v", err)
 		return
 	}
 
@@ -79,6 +79,7 @@ func Start() {
 	mux.HandleFunc("/status", statusHandler)
 	mux.HandleFunc("/update", updateHandler)
 	mux.HandleFunc("/stop", stopHandler)
+	mux.HandleFunc("/reset", resetHandler)
 	server = &http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
 		Handler: mux,
@@ -94,7 +95,7 @@ func Stop() {
 	// port, err := ServerIsRunnning()
 	// if err == nil {
 	if err := pid.IsRunning(); err == nil {
-		log.Printf("cannot stop server: %v\n", err)
+		log.Printf("cannot stop server: %v", err)
 		return
 	}
 
@@ -129,13 +130,23 @@ func Page() {
 	if err := pid.IsRunning(); err != nil {
 		cache.Page(nil)
 	} else {
-		log.Printf("Cannon server is not running. Use --start or --toggle to start it.\n")
+		log.Printf("Cannon server is not running. Use --start or --toggle to start it.")
 	}
 }
-
 func Reset() {
-	// reset the connection from the server side to unlock the file so it can be moved/deleted
-	log.Printf("server.Reset() is not yet implemented")
+	// reset the current streaming connection
+	if err := pid.IsRunning(); err == nil {
+		log.Printf("cannot reset server: %v", err)
+		return
+	}
+
+	_, port := config.Port().Int()
+	url := fmt.Sprintf("http://localhost:%d/%s", port, "reset")
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("error resetting server: %v", err)
+	}
+	defer resp.Body.Close()
 }
 
 func Status() {
@@ -144,7 +155,7 @@ func Status() {
 	if err := pid.IsRunning(); err != nil {
 		cache.Status(nil)
 	} else {
-		log.Printf("Cannon server is not running. Use --start or --toggle to start it.\n")
+		log.Printf("Cannon server is not running. Use --start or --toggle to start it.")
 	}
 }
 
@@ -187,4 +198,9 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("error stopping server: %v", err)
 		}
 	}()
+}
+
+func resetHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("server.reset()")
+	cache.Reset(&w, r)
 }

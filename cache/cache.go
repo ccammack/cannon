@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ccammack/cannon/cancelread"
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
 	"golang.org/x/exp/maps"
@@ -176,6 +177,7 @@ type Resource struct {
 	htmlHash  string
 	stdout    string // {stdout}
 	stderr    string // {stderr}
+	reader    *cancelread.Reader
 }
 
 // max display length for unknown file types
@@ -296,7 +298,7 @@ func convert(input string, ch chan *Resource) {
 	}
 
 	// create a new resource
-	resource = &Resource{input, inputHash, createPreviewFile(), input, "", "", "", ""}
+	resource = &Resource{input, inputHash, createPreviewFile(), input, "", "", "", "", nil}
 
 	// find the first matching configuration rule
 	_, rules := matchConversionRules(input)
@@ -390,6 +392,19 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	cache.lock.Unlock()
 }
 
+func Reset(w *http.ResponseWriter, r *http.Request) {
+	log.Println("cache.reset()")
+
+	// look up the current resource if it exists
+	cache.lock.RLock()
+	defer cache.lock.RUnlock()
+	resource, ok := cache.lookup[cache.currentHash]
+	if ok && resource.reader != nil {
+		resource.reader.Cancel()
+		// resource.reader = nil
+	}
+}
+
 func File(w *http.ResponseWriter, r *http.Request) {
 	// serve the requested file by hash
 	path := strings.ReplaceAll(r.URL.Path, "{document.location.href}", "")
@@ -402,9 +417,30 @@ func File(w *http.ResponseWriter, r *http.Request) {
 
 	if ok {
 		// serve the output file with extenstion
-		http.ServeFile(*w, r, resource.outputExt)
+		// http.ServeFile(*w, r, resource.outputExt)
+
+		// if resource.reader != nil {
+		// 	resource.reader.Cancel()
+		// 	resource.reader = nil
+		// }
+		// resource.reader = cancelread.New(resource.outputExt)
+		// http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+
+		if resource.reader == nil {
+			resource.reader = cancelread.New(resource.outputExt)
+		}
+
+		// select {
+		// case <-resource.reader.Ctx.Done():
+		// 	log.Println("done...")
+		// default:
+		// 	http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+		// }
+
+		http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
 	} else {
-		// server an empty file
+		// serve a non-existant file
+		// TODO: this better
 		http.ServeFile(*w, r, "")
 	}
 }
