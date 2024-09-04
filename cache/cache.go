@@ -305,6 +305,9 @@ func convert(input string, ch chan *Resource) {
 		}
 	}
 
+	// create a reader for the output file
+	resource.reader = cancelread.New(resource.outputExt)
+
 	ch <- resource
 }
 
@@ -351,6 +354,7 @@ func formatCurrentResourceData() map[string]template.HTML {
 
 func Update(w *http.ResponseWriter, r *http.Request) {
 	// select a new file to display
+	cancelReaders()
 
 	// extract params from the request body
 	params := map[string]string{}
@@ -383,44 +387,66 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	cache.lock.Unlock()
 }
 
-func Reset(w *http.ResponseWriter, r *http.Request) {
-	// look up the current resource if it exists
+func cancelReaders() {
+	log.Println("cancelReaders()")
+
+	// iterate resources and free any readers
 	cache.lock.RLock()
 	defer cache.lock.RUnlock()
-	resource, ok := cache.lookup[cache.currentHash]
-	if ok && resource.reader != nil {
-		resource.reader.Cancel()
-		resource.reader = nil
+	for k, v := range cache.lookup {
+		if v.reader != nil {
+			log.Printf("found: %s", k)
+			v.reader.Cancel()
+			v.reader = nil
+		}
 	}
 }
 
+func Reset(w *http.ResponseWriter, r *http.Request) {
+	// look up the current resource if it exists
+	// cache.lock.RLock()
+	// defer cache.lock.RUnlock()
+	// resource, ok := cache.lookup[cache.currentHash]
+	// if ok && resource.reader != nil {
+	// 	resource.reader.Cancel()
+	// 	resource.reader = nil
+	// }
+
+	cancelReaders()
+}
+
 func File(w *http.ResponseWriter, r *http.Request) {
+	log.Println("cache.File()")
+
 	// serve the requested file by hash
-	path := strings.ReplaceAll(r.URL.Path, "{document.location.href}", "")
-	hash := strings.ReplaceAll(path, "/", "")
+	// path := strings.ReplaceAll(r.URL.Path, "{document.location.href}", "")
+	// hash := strings.ReplaceAll(path, "/", "")
 
 	// look up the current resource if it exists
 	// TODO: this smells because it creates a new cache entry for the streaming file
 	cache.lock.RLock()
 	defer cache.lock.RUnlock()
-	resource, ok := cache.lookup[hash]
 
-	if ok {
-		// serve the output file with extension
-		http.ServeFile(*w, r, resource.outputExt)
+	// resource, ok := cache.lookup[hash]
+	// if ok {
+	// 	// serve the output file with extension
+	// 	// http.ServeFile(*w, r, resource.outputExt)
 
-		// if resource.reader == nil {
-		// 	resource.reader = cancelread.New(resource.outputExt)
-		// }
+	// 	// create a cancelreader
+	// 	if resource.reader == nil {
+	// 		resource.reader = cancelread.New(resource.outputExt)
+	// 	}
+	// 	if resource.reader != nil {
+	// 		http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+	// 	}
 
-		// if resource.reader != nil {
-		// 	http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
-		// 	return
-		// }
+	resource, ok := cache.lookup[cache.currentHash]
+	if ok && resource.reader != nil {
+		http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+	} else {
+		// serve 404
+		http.Error(*w, "Resource Not Found", http.StatusNotFound)
 	}
-
-	// serve 404
-	http.Error(*w, "Resource Not Found", http.StatusNotFound)
 }
 
 func Page(w *http.ResponseWriter) {

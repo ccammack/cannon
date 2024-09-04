@@ -46,10 +46,13 @@ func New(path string) *Reader {
 }
 
 func (cr *Reader) Read(p []byte) (int, error) {
+	// log.Println("cancelread.Read()")
 	select {
 	case <-cr.Ctx.Done():
+		log.Println("done reading")
 		return 0, io.ErrClosedPipe
 	default:
+		// log.Println("reading...")
 		n, err := cr.reader.Read(p)
 		if err != nil && err != io.EOF {
 			log.Printf("error reading: %v", err)
@@ -60,10 +63,14 @@ func (cr *Reader) Read(p []byte) (int, error) {
 }
 
 func (cr *Reader) Seek(offset int64, whence int) (int64, error) {
+	// log.Println("cancelread.Seek()")
+
 	select {
 	case <-cr.Ctx.Done():
+		log.Println("done seeking")
 		return 0, io.ErrClosedPipe
 	default:
+		// log.Println("seeking...")
 		if _, err := cr.reader.(io.Seeker).Seek(offset, whence); err != nil {
 			log.Printf("error seeking: %v", err)
 			return 0, err
@@ -73,6 +80,8 @@ func (cr *Reader) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (cr *Reader) Cancel() error {
+	log.Println("cancelread.Cancel()")
+
 	cr.cancel()
 	err := cr.file.Close()
 	if err != nil {
