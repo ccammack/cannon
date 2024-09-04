@@ -2,7 +2,6 @@ package cancelread
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -22,14 +21,14 @@ func New(path string) *Reader {
 	// open file
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("Error opening file: %v\n", err)
+		log.Printf("Error opening file: %v\n", err)
 		return nil
 	}
 
 	// get file info
 	info, err := os.Stat(path)
 	if err != nil {
-		fmt.Printf("Error getting file info: %v\n", err)
+		log.Printf("Error getting file info: %v\n", err)
 		return nil
 	}
 
