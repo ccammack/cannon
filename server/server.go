@@ -119,10 +119,11 @@ func Page() {
 		log.Printf("Cannon server is not running. Use --start or --toggle to start it.")
 	}
 }
+
 func Reset() {
-	// reset the current streaming connection
+	// reset the current connection and close the file
 	if err := pid.IsRunning(); err == nil {
-		log.Printf("cannot reset server: %v", err)
+		log.Printf("Cannon server is not running. Use --start or --toggle to start it.")
 		return
 	}
 
@@ -130,7 +131,7 @@ func Reset() {
 	url := fmt.Sprintf("http://localhost:%d/%s", port, "reset")
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Printf("error resetting server: %v", err)
+		log.Printf("error resetting connection: %v", err)
 	}
 	defer resp.Body.Close()
 }
@@ -186,6 +187,6 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func resetHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("server.reset()")
+	// handle route /reset
 	cache.Reset(&w, r)
 }

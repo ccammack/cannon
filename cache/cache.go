@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -100,17 +99,9 @@ func matchConversionRules(file string) (string, []conversionRule) {
 	return rulesk, matches
 }
 
-// func generateOutputFilename(input string, entries []string) string {
-// 	for _, entry := range entries {
-// 		if strings.Contains(entry, "{output}") {
-// 			return strings.Replace(entry, "{output}", input, -1)
-// 		}
-// 	}
-// 	return input
-// }
-
 func findMatchingOutputFile(output string) string {
 	// find newly created files that match output*
+	// TODO: add a vars block to the YAML and remove this function
 	matches, err := filepath.Glob(output + "*")
 	if err != nil {
 		log.Printf("error matching filename %s: %v", output, err)
@@ -242,7 +233,7 @@ func serveCommand(resource *Resource, rule conversionRule) bool {
 	}
 
 	// generate output filename
-	// resource.outputExt = generateOutputFilename(resource.output, rule.cmd)
+	// TODO: allow the user to define their own vars in config.yml
 	resource.outputExt = findMatchingOutputFile(resource.output)
 
 	// replace html placeholders
@@ -271,13 +262,13 @@ func createPreviewFile() string {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	if len(cache.tempDir) == 0 {
-		dir, err := ioutil.TempDir("", "cannon")
+		dir, err := os.MkdirTemp("", "cannon")
 		util.CheckPanicOld(err)
 		cache.tempDir = dir
 	}
 
 	// create a temp file to hold the output preview file
-	fp, err := ioutil.TempFile(cache.tempDir, "preview")
+	fp, err := os.CreateTemp(cache.tempDir, "preview")
 	util.CheckPanicOld(err)
 	defer fp.Close()
 	return fp.Name()
@@ -393,15 +384,13 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 }
 
 func Reset(w *http.ResponseWriter, r *http.Request) {
-	log.Println("cache.reset()")
-
 	// look up the current resource if it exists
 	cache.lock.RLock()
 	defer cache.lock.RUnlock()
 	resource, ok := cache.lookup[cache.currentHash]
 	if ok && resource.reader != nil {
 		resource.reader.Cancel()
-		// resource.reader = nil
+		resource.reader = nil
 	}
 }
 
@@ -411,38 +400,27 @@ func File(w *http.ResponseWriter, r *http.Request) {
 	hash := strings.ReplaceAll(path, "/", "")
 
 	// look up the current resource if it exists
+	// TODO: this smells because it creates a new cache entry for the streaming file
 	cache.lock.RLock()
 	defer cache.lock.RUnlock()
 	resource, ok := cache.lookup[hash]
 
 	if ok {
-		// serve the output file with extenstion
+		// serve the output file with extension
 		// http.ServeFile(*w, r, resource.outputExt)
-
-		// if resource.reader != nil {
-		// 	resource.reader.Cancel()
-		// 	resource.reader = nil
-		// }
-		// resource.reader = cancelread.New(resource.outputExt)
-		// http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
 
 		if resource.reader == nil {
 			resource.reader = cancelread.New(resource.outputExt)
 		}
 
-		// select {
-		// case <-resource.reader.Ctx.Done():
-		// 	log.Println("done...")
-		// default:
-		// 	http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
-		// }
-
-		http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
-	} else {
-		// serve a non-existant file
-		// TODO: this better
-		http.ServeFile(*w, r, "")
+		if resource.reader != nil {
+			http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+			return
+		}
 	}
+
+	// serve 404
+	http.Error(*w, "Resource Not Found", http.StatusNotFound)
 }
 
 func Page(w *http.ResponseWriter) {
