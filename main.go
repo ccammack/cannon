@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/ccammack/cannon/cache"
+	"github.com/ccammack/cannon/client"
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/pid"
-	"github.com/ccammack/cannon/server"
 	"github.com/urfave/cli/v2"
 )
 
@@ -60,7 +60,7 @@ in a web browser using a static HTTP server.`,
 				Aliases: []string{"s"},
 				Usage:   "Start the preview server",
 				Action: func(ctx *cli.Context, v bool) error {
-					server.Start()
+					client.Start()
 					return nil
 				},
 			},
@@ -69,7 +69,7 @@ in a web browser using a static HTTP server.`,
 				Aliases: []string{"p"},
 				Usage:   "Stop the preview server",
 				Action: func(ctx *cli.Context, v bool) error {
-					server.Stop()
+					client.Stop()
 					return nil
 				},
 			},
@@ -78,7 +78,7 @@ in a web browser using a static HTTP server.`,
 				Aliases: []string{"t"},
 				Usage:   "Toggle the preview server on and off",
 				Action: func(ctx *cli.Context, v bool) error {
-					server.Toggle()
+					client.Toggle()
 					return nil
 				},
 			},
@@ -87,7 +87,7 @@ in a web browser using a static HTTP server.`,
 				Aliases: []string{"r"},
 				Usage:   "Reset the connection to close the current file.",
 				Action: func(ctx *cli.Context, v bool) error {
-					server.Reset()
+					client.Command("reset")
 					return nil
 				},
 			},
@@ -96,7 +96,7 @@ in a web browser using a static HTTP server.`,
 				// Aliases: []string{"g"},
 				Usage: "Display the current page HTML for testing",
 				Action: func(ctx *cli.Context, v bool) error {
-					server.Page()
+					client.Command("page")
 					return nil
 				},
 			},
@@ -105,7 +105,7 @@ in a web browser using a static HTTP server.`,
 				// Aliases: []string{"u"},
 				Usage: "Display the server status for testing",
 				Action: func(ctx *cli.Context, v bool) error {
-					server.Status()
+					client.Command("status")
 					return nil
 				},
 			},

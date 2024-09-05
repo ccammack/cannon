@@ -12,7 +12,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ccammack/cannon/cancelread"
@@ -22,19 +21,17 @@ import (
 )
 
 var cache = struct {
-	lock        sync.RWMutex
-	currentHash string
-	lookup      map[string]*Resource
-	tempDir     string
-}{lookup: make(map[string]*Resource)}
+	tempDir string
+	busy    bool
+	current *Resource
+	reader  *cancelread.Reader
+}{}
 
 func reloadCallback(event string) {
 	if event == "reload" {
-		cache.lock.Lock()
-		cache.currentHash = ""
-		cache.lookup = make(map[string]*Resource)
+		Reset()
+		cache.current = nil
 		cache.tempDir = ""
-		cache.lock.Unlock()
 	}
 }
 
@@ -44,12 +41,10 @@ func init() {
 }
 
 func Exit() {
-	// clean up
-	cache.lock.Lock()
+	// clean up temp files
 	if len(cache.tempDir) > 0 {
 		os.RemoveAll(cache.tempDir)
 	}
-	cache.lock.Unlock()
 }
 
 type conversionRule struct {
@@ -168,7 +163,6 @@ type Resource struct {
 	htmlHash  string
 	stdout    string // {stdout}
 	stderr    string // {stderr}
-	reader    *cancelread.Reader
 }
 
 // max display length for unknown file types
@@ -213,7 +207,7 @@ func serveInput(resource *Resource, rule conversionRule) bool {
 	}
 
 	// replace placeholders
-	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+resource.inputHash)
+	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
 	resource.htmlHash = util.MakeHash(resource.html)
 
 	return true
@@ -240,7 +234,7 @@ func serveCommand(resource *Resource, rule conversionRule) bool {
 	html := rule.html
 	html = strings.ReplaceAll(html, "{output}", resource.output)
 	html = strings.ReplaceAll(html, "{outputext}", resource.outputExt)
-	html = strings.ReplaceAll(html, "{url}", "{document.location.href}"+resource.inputHash)
+	html = strings.ReplaceAll(html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
 	html = strings.ReplaceAll(html, "{stdout}", resource.stdout)
 	html = strings.ReplaceAll(html, "{stderr}", resource.stderr)
 
@@ -259,8 +253,6 @@ func serveCommand(resource *Resource, rule conversionRule) bool {
 
 func createPreviewFile() string {
 	// create a temp directory on the first call
-	cache.lock.Lock()
-	defer cache.lock.Unlock()
 	if len(cache.tempDir) == 0 {
 		dir, err := os.MkdirTemp("", "cannon")
 		util.CheckPanicOld(err)
@@ -278,18 +270,8 @@ func convert(input string, ch chan *Resource) {
 	// TODO: use the file.ToLower() rather than hashing
 	inputHash := util.MakeHash(input)
 
-	// find and return the resource if it already exists
-	cache.lock.Lock()
-	cache.currentHash = inputHash
-	resource, ok := cache.lookup[inputHash]
-	cache.lock.Unlock()
-	if ok {
-		ch <- resource
-		return
-	}
-
-	// create a new resource
-	resource = &Resource{input, inputHash, createPreviewFile(), input, "", "", "", "", nil}
+	// resource = &Resource{input, inputHash, createPreviewFile(), input, "", "", "", "", nil}
+	resource := &Resource{input, inputHash, createPreviewFile(), input, "", "", "", ""}
 
 	// find the first matching configuration rule
 	_, rules := matchConversionRules(input)
@@ -305,33 +287,24 @@ func convert(input string, ch chan *Resource) {
 		}
 	}
 
-	// create a reader for the output file
-	resource.reader = cancelread.New(resource.outputExt)
-
 	ch <- resource
 }
 
-func formatCurrentResourceData() map[string]template.HTML {
+func FormatCurrentResourceData() map[string]template.HTML {
 	// set default values
 	_, interval := config.Interval().String()
 	data := map[string]template.HTML{
 		"interval": template.HTML(interval),
 	}
 
-	// look up the current resource if it exists
-	cache.lock.RLock()
-	currentHash := cache.currentHash
-	resource, ok := cache.lookup[currentHash]
-	cache.lock.RUnlock()
-
-	if ok {
+	if cache.current != nil {
 		// serve the converted output file (or error text on failure)
 		maps.Copy(data, map[string]template.HTML{
-			"title":    template.HTML(filepath.Base(resource.input)),
-			"html":     template.HTML(resource.html),
-			"htmlhash": template.HTML(resource.htmlHash),
+			"title":    template.HTML(filepath.Base(cache.current.input)),
+			"html":     template.HTML(cache.current.html),
+			"htmlhash": template.HTML(cache.current.htmlHash),
 		})
-	} else if currentHash != "" {
+	} else if cache.busy {
 		// serve a spinner until the file has finished
 		// https://codepen.io/nikhil8krishnan/pen/rVoXJa
 		maps.Copy(data, map[string]template.HTML{
@@ -354,7 +327,6 @@ func formatCurrentResourceData() map[string]template.HTML {
 
 func Update(w *http.ResponseWriter, r *http.Request) {
 	// select a new file to display
-	cancelReaders()
 
 	// extract params from the request body
 	params := map[string]string{}
@@ -364,17 +336,19 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	// set the current input to display
 	input := params["file"]
 
-	// convert file to html-native
-	ch := make(chan *Resource)
-	go func() {
-		convert(input, ch)
-	}()
-
 	// respond with { state: updated }
 	body := map[string]template.HTML{
 		"state": "updated",
 	}
 	util.RespondJson(w, body)
+
+	cache.busy = true
+
+	// convert file to html-native
+	ch := make(chan *Resource)
+	go func() {
+		convert(input, ch)
+	}()
 
 	// wait for convert() to finish
 	resource := <-ch
@@ -382,38 +356,26 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 		log.Printf("error converting file: %v", input)
 		return
 	}
-	cache.lock.Lock()
-	cache.lookup[resource.inputHash] = resource
-	cache.lock.Unlock()
+	if cache.reader != nil {
+		cache.reader.Cancel()
+	}
+	// cache.reader = cancelread.New(resource.outputExt)
+	cache.current = resource
+	cache.busy = false
 }
 
-func cancelReaders() {
-	log.Println("cancelReaders()")
-
-	// iterate resources and free any readers
-	cache.lock.RLock()
-	defer cache.lock.RUnlock()
-	for k, v := range cache.lookup {
-		if v.reader != nil {
-			log.Printf("found: %s", k)
-			v.reader.Cancel()
-			v.reader = nil
-		}
+func Reset() {
+	if cache.reader != nil {
+		cache.reader.Cancel()
+		cache.reader = nil
 	}
 }
 
-func Reset(w *http.ResponseWriter, r *http.Request) {
-	// look up the current resource if it exists
-	// cache.lock.RLock()
-	// defer cache.lock.RUnlock()
-	// resource, ok := cache.lookup[cache.currentHash]
-	// if ok && resource.reader != nil {
-	// 	resource.reader.Cancel()
-	// 	resource.reader = nil
-	// }
+//
 
-	cancelReaders()
-}
+//
+
+//
 
 func File(w *http.ResponseWriter, r *http.Request) {
 	log.Println("cache.File()")
@@ -424,8 +386,9 @@ func File(w *http.ResponseWriter, r *http.Request) {
 
 	// look up the current resource if it exists
 	// TODO: this smells because it creates a new cache entry for the streaming file
-	cache.lock.RLock()
-	defer cache.lock.RUnlock()
+	// cache.lock.RLock()
+	// resource, ok := cache.lookup[hash]
+	// cache.lock.RUnlock()
 
 	// resource, ok := cache.lookup[hash]
 	// if ok {
@@ -440,33 +403,44 @@ func File(w *http.ResponseWriter, r *http.Request) {
 	// 		http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
 	// 	}
 
-	resource, ok := cache.lookup[cache.currentHash]
-	if ok && resource.reader != nil {
-		http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
-	} else {
-		// serve 404
-		http.Error(*w, "Resource Not Found", http.StatusNotFound)
-	}
-}
+	// resource, ok := cache.lookup[cache.currentHash]
+	// if ok && resource.reader != nil {
+	// 	http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+	// } else {
+	// 	// serve 404
+	// 	http.Error(*w, "Resource Not Found", http.StatusNotFound)
+	// }
 
-func Page(w *http.ResponseWriter) {
-	// emit html for the current page
-	data := formatCurrentResourceData()
+	// if cache.converting {
+	// 	// serve 404
+	// 	http.Error(*w, "Resource Not Found", http.StatusNotFound)
+	// 	return
+	// }
 
-	// generate page from template
-	t, err := template.New("page").Parse(PageTemplate)
-	util.CheckPanicOld(err)
+	// if cache.current == nil {
+	// 	log.Panicf("cache.current == nil")
+	// 	return
+	// }
 
-	// respond with current page html
-	if w != nil {
-		t.Execute(*w, data)
-	} else {
-		t.Execute(os.Stdout, data)
-	}
-}
+	// if hash != cache.current.inputHash {
+	// 	log.Panicf("hash != cache.current.inputHash")
+	// 	return
+	// }
 
-func Status(w *http.ResponseWriter) {
-	// respond with current state info
-	body := formatCurrentResourceData()
-	util.RespondJson(w, body)
+	// // if cache.reader == nil {
+	// // 	// create a reader for the output file
+	// // 	cache.reader = cancelread.New(path)
+	// // }
+
+	// if cache.reader == nil {
+	// 	log.Panicf("cache.reader == nil")
+	// 	return
+	// }
+
+	// http.ServeContent(*w, r, filepath.Base(cache.reader.Path), cache.reader.Info.ModTime(), cache.reader)
+
+	// serve 404
+	// http.Error(*w, "Resource Not Found", http.StatusNotFound)
+
+	http.ServeFile(*w, r, cache.current.outputExt)
 }

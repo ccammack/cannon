@@ -80,7 +80,7 @@ func (cr *Reader) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (cr *Reader) Cancel() error {
-	log.Println("cancelread.Cancel()")
+	// log.Println("cancelread.Cancel()")
 
 	cr.cancel()
 	err := cr.file.Close()
