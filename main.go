@@ -78,9 +78,9 @@ in a web browser using a static HTTP server.`,
 				},
 			},
 			&cli.StringFlag{
-				Name:    "reset",
-				Aliases: []string{"r"},
-				Usage:   "Reset the connection for the specified file.",
+				Name:    "close",
+				Aliases: []string{"c"},
+				Usage:   "Close the specified file.",
 				Action: func(ctx *cli.Context, v string) error {
 					var hash, file string
 					var err error
@@ -91,7 +91,7 @@ in a web browser using a static HTTP server.`,
 						"file": file,
 						"hash": hash,
 					}
-					client.Request("POST", "reset", params)
+					client.Request("POST", "close", params)
 					return nil
 				},
 			},

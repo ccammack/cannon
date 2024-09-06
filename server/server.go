@@ -68,7 +68,7 @@ func Start() {
 	mux.HandleFunc("/file/", fileHandler)
 	mux.HandleFunc("/update", updateHandler)
 	mux.HandleFunc("/stop", stopHandler)
-	mux.HandleFunc("/reset", resetHandler)
+	mux.HandleFunc("/close", closeHandler)
 	server = &http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
 		Handler: mux,
@@ -130,7 +130,7 @@ func respondJson(w http.ResponseWriter, data map[string]template.HTML) {
 	json.NewEncoder(w).Encode(data)
 }
 
-func resetHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /reset
-	cache.Reset(&w, r)
+func closeHandler(w http.ResponseWriter, r *http.Request) {
+	// handle route /close
+	cache.Close(&w, r)
 }

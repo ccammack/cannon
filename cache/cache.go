@@ -22,32 +22,37 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-var cache = struct {
-	tempDir string
-
+type Cache struct {
+	lock     sync.RWMutex
+	tempDir  string
 	currHash string
 	currRes  *Resource
-
-	lock   sync.RWMutex
-	lookup map[string]*Resource
-}{lookup: make(map[string]*Resource)}
-
-func reloadCallback(event string) {
-	if event == "reload" {
-		cache.currRes = nil
-		cache.tempDir = ""
-		for _, v := range cache.lookup {
-			if v.reader != nil {
-				v.reader.Cancel()
-				v.reader = nil
-			}
-		}
-	}
+	lookup   map[string]*Resource
 }
+
+var cache = Cache{lookup: make(map[string]*Resource)}
 
 func init() {
 	// reset the resource map on config file changes
-	config.RegisterCallback(reloadCallback)
+	config.RegisterCallback(func(event string) {
+		if event == "reload" {
+			// clean the cache
+			cache.lock.Lock()
+			cache.tempDir = ""
+			cache.currHash = ""
+			cache.currRes = nil
+			for _, v := range cache.lookup {
+				if v.reader != nil {
+					v.reader.Cancel()
+					v.reader = nil
+				}
+			}
+			cache.lock.Unlock()
+
+			// replace the cache
+			cache = Cache{lookup: make(map[string]*Resource)}
+		}
+	})
 }
 
 func Exit() {
@@ -416,7 +421,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	util.RespondJson(w, body)
 }
 
-func Reset(w *http.ResponseWriter, r *http.Request) {
+func Close(w *http.ResponseWriter, r *http.Request) {
 	// extract params from the request body
 	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
