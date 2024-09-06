@@ -1,20 +1,15 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/client"
 	"github.com/ccammack/cannon/config"
-	"github.com/ccammack/cannon/pid"
+	"github.com/ccammack/cannon/util"
 	"github.com/urfave/cli/v2"
 )
 
@@ -82,12 +77,21 @@ in a web browser using a static HTTP server.`,
 					return nil
 				},
 			},
-			&cli.BoolFlag{
+			&cli.StringFlag{
 				Name:    "reset",
 				Aliases: []string{"r"},
-				Usage:   "Reset the connection to close the current file.",
-				Action: func(ctx *cli.Context, v bool) error {
-					client.Command("reset")
+				Usage:   "Reset the connection for the specified file.",
+				Action: func(ctx *cli.Context, v string) error {
+					var hash, file string
+					var err error
+					if hash, file, err = util.HashPath(v); err != nil {
+						log.Printf("error generating file hash: %v", err)
+					}
+					params := map[string]string{
+						"file": file,
+						"hash": hash,
+					}
+					client.Request("POST", "reset", params)
 					return nil
 				},
 			},
@@ -116,38 +120,21 @@ in a web browser using a static HTTP server.`,
 				return nil
 			}
 
-			path, err := filepath.Abs(cCtx.Args().Get(0))
-			if err != nil {
-				return err
+			v := cCtx.Args().Get(0)
+			var hash, file string
+			var err error
+			if hash, file, err = util.HashPath(v); err != nil {
+				log.Printf("error generating file hash: %v", err)
 			}
-
-			fp, err := os.Open(path)
-			if err != nil {
-				return err
+			params := map[string]string{
+				"file": file,
+				"hash": hash,
 			}
-			defer fp.Close()
-
-			// write mime type to stdout for display in the right pane
-			// fmt.Println(cache.GetMimeType(path))
-
-			// send file path argument to /update endpoint
-			if err := pid.IsRunning(); err != nil {
-				_, port := config.Port().Int()
-				url := fmt.Sprintf("http://localhost:%d/%s", port, "update")
-				postBody, _ := json.Marshal(map[string]string{
-					"file": path,
-				})
-				responseBody := bytes.NewBuffer(postBody)
-				resp, err := http.Post(url, "application/json", responseBody)
-				if err != nil {
-					log.Printf("error during post request: %v", err)
-				}
-				defer resp.Body.Close()
-			}
+			client.Request("POST", "update", params)
 
 			// lf requires a non-zero return value to disable caching
 			_, exit := config.Exit().Int()
-			mimetype := cache.GetMimeType(path)
+			mimetype := cache.GetMimeType(file)
 			return cli.Exit(mimetype, exit)
 		},
 	}

@@ -179,3 +179,19 @@ func IsBinaryFile(file string) ([]byte, int, bool) {
 	}
 	return b, int(fs.Size()), false
 }
+
+func HashPath(file string) (string, string, error) {
+	path, err := filepath.Abs(file)
+	if err != nil {
+		log.Printf("error generating absolute path: %v", err)
+		return "", "", err
+	}
+	fp, err := os.Open(path)
+	if err != nil {
+		log.Printf("error opening file: %v", err)
+		return "", "", err
+	}
+	defer fp.Close()
+	hash := MakeHash(path)
+	return hash, path, nil
+}

@@ -92,17 +92,17 @@ func pageHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// json
 		data["page"] = template.HTML(t.Tree.Root.String())
-		respondJson(w, r, data)
+		respondJson(w, data)
 	}
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /status
 	data := map[string]template.HTML{
-		"action": "status",
+		"status": "success",
 	}
 	maps.Copy(data, cache.FormatCurrentResourceData())
-	respondJson(w, r, data)
+	respondJson(w, data)
 }
 
 func fileHandler(w http.ResponseWriter, r *http.Request) {
@@ -116,14 +116,14 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
-	respondJson(w, r, map[string]template.HTML{
-		"action": "stop",
+	// handle route /stop
+	respondJson(w, map[string]template.HTML{
+		"status": "success",
 	})
-
 	shutdown()
 }
 
-func respondJson(w http.ResponseWriter, r *http.Request, data map[string]template.HTML) {
+func respondJson(w http.ResponseWriter, data map[string]template.HTML) {
 	// json
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -132,53 +132,5 @@ func respondJson(w http.ResponseWriter, r *http.Request, data map[string]templat
 
 func resetHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /reset
-	cache.Reset()
-	respondJson(w, r, map[string]template.HTML{
-		"action": "reset",
-	})
+	cache.Reset(&w, r)
 }
-
-//
-
-//
-
-//
-
-// func defaultHandler(w http.ResponseWriter, r *http.Request) {
-// 	// serve 404
-// 	http.Error(w, "404", http.StatusNotFound)
-// }
-
-// func respond(w http.ResponseWriter, r *http.Request, data map[string]template.HTML) {
-// 	accept := r.Header.Get("Accept")
-// 	if accept == "" || strings.Contains(accept, "text/html") {
-// 		// html
-// 		w.Header().Set("Content-Type", "text/html")
-// 		w.WriteHeader(http.StatusOK)
-// 		fmt.Fprint(w, "s", data)
-// 	} else {
-// 		// json
-// 		w.Header().Set("Content-Type", "application/json")
-// 		w.WriteHeader(http.StatusOK)
-// 		json.NewEncoder(w).Encode(data)
-// 	}
-// }
-
-// func respond(w http.ResponseWriter, r *http.Request, data any) {
-// 	accept := r.Header.Get("Accept")
-// 	if accept == "" || strings.Contains(accept, "text/html") {
-// 		// html
-// 		w.Header().Set("Content-Type", "text/html")
-// 		w.WriteHeader(http.StatusOK)
-// 		fmt.Fprint(w, "s", data)
-// 	} else if strings.Contains(accept, "application/json") {
-// 		// json
-// 		w.Header().Set("Content-Type", "application/json")
-// 		w.WriteHeader(http.StatusOK)
-// 		json.NewEncoder(w).Encode(data)
-// 	} else {
-// 		// unsupported
-// 		log.Printf("unsupported request headers %s in server.respondJson()", accept)
-// 		http.Error(w, "Invalid request headers in server.respondJson()", http.StatusInternalServerError)
-// 	}
-// }
