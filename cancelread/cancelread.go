@@ -46,7 +46,7 @@ func New(path string) *Reader {
 }
 
 func (cr *Reader) Read(p []byte) (int, error) {
-	// log.Println("cancelread.Read()")
+	log.Println("cancelread.Read() requests", len(p))
 	select {
 	case <-cr.Ctx.Done():
 		log.Println("done reading")
