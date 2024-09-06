@@ -96,20 +96,20 @@ in a web browser using a static HTTP server.`,
 				},
 			},
 			&cli.BoolFlag{
-				Name: "page",
-				// Aliases: []string{"g"},
-				Usage: "Display the current page HTML for testing",
+				Name:    "page",
+				Aliases: []string{"g"},
+				Usage:   "Display the current page HTML for testing",
 				Action: func(ctx *cli.Context, v bool) error {
-					client.Command("page")
+					client.Request("GET", "page", nil)
 					return nil
 				},
 			},
 			&cli.BoolFlag{
-				Name: "status",
-				// Aliases: []string{"u"},
-				Usage: "Display the server status for testing",
+				Name:    "status",
+				Aliases: []string{"u"},
+				Usage:   "Display the server status for testing",
 				Action: func(ctx *cli.Context, v bool) error {
-					client.Command("status")
+					client.Request("GET", "status", nil)
 					return nil
 				},
 			},

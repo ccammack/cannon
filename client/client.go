@@ -45,7 +45,7 @@ func Stop() {
 	if err := pid.IsRunning(); err == nil {
 		log.Printf("error stopping server (already stopped?)")
 	} else {
-		Command("stop")
+		Request("POST", "stop", nil)
 	}
 }
 
@@ -55,47 +55,6 @@ func Toggle() {
 	} else {
 		Start()
 	}
-}
-
-func Command(command string) {
-	if err := pid.IsRunning(); err == nil {
-		log.Printf("server is not running (use --start or --toggle to start)")
-	}
-
-	_, port := config.Port().Int()
-	url := fmt.Sprintf("http://localhost:%d/%s", port, command)
-
-	client := &http.Client{}
-
-	// prepare request
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Printf("error creating request: %v", err)
-		return
-	}
-	req.Header.Set("Accept", "application/json")
-
-	// send it
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("error making request: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// check header
-	// contentType := resp.Header.Get("Content-Type")
-	// log.Printf("Content-Type: %s\n", contentType)
-
-	// read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("error reading response: %v", err)
-		return
-	}
-
-	// log the result
-	log.Printf("%v", string(body))
 }
 
 func Request(method string, resource string, params map[string]string) {
