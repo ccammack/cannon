@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -92,7 +91,7 @@ func pageHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// json
 		data["page"] = template.HTML(t.Tree.Root.String())
-		respondJson(w, data)
+		util.RespondJson(w, data)
 	}
 }
 
@@ -102,35 +101,28 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 	}
 	maps.Copy(data, cache.FormatCurrentResourceData())
-	respondJson(w, data)
+	util.RespondJson(w, data)
 }
 
 func fileHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /<hash>
-	cache.File(&w, r)
+	cache.File(w, r)
 }
 
 func updateHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /update
-	cache.Update(&w, r)
+	cache.Update(w, r)
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /stop
-	respondJson(w, map[string]template.HTML{
+	util.RespondJson(w, map[string]template.HTML{
 		"status": "success",
 	})
 	shutdown()
 }
 
-func respondJson(w http.ResponseWriter, data map[string]template.HTML) {
-	// json
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(data)
-}
-
 func closeHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /close
-	cache.Close(&w, r)
+	cache.Close(w, r)
 }

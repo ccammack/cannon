@@ -32,14 +32,11 @@ func Append(text string) {
 	CheckPanicOld(err)
 }
 
-func RespondJson(w *http.ResponseWriter, jsonMap map[string]template.HTML) {
-	if w != nil {
-		(*w).Header().Set("Content-Type", "application/json")
-		(*w).WriteHeader(http.StatusOK)
-		json.NewEncoder(*w).Encode(jsonMap)
-	} else {
-		json.NewEncoder(os.Stdout).Encode(jsonMap)
-	}
+func RespondJson(w http.ResponseWriter, data map[string]template.HTML) {
+	// json
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(data)
 }
 
 func Find(a []string, x string) int {

@@ -21,14 +21,14 @@ func New(path string) *Reader {
 	// open file
 	file, err := os.Open(path)
 	if err != nil {
-		log.Printf("Error opening file: %v\n", err)
+		log.Printf("Error opening file: %v", err)
 		return nil
 	}
 
 	// get file info
 	info, err := os.Stat(path)
 	if err != nil {
-		log.Printf("Error getting file info: %v\n", err)
+		log.Printf("Error getting file info: %v", err)
 		return nil
 	}
 
@@ -46,16 +46,13 @@ func New(path string) *Reader {
 }
 
 func (cr *Reader) Read(p []byte) (int, error) {
-	log.Println("cancelread.Read() requests", len(p))
 	select {
 	case <-cr.Ctx.Done():
-		log.Println("done reading")
 		return 0, io.ErrClosedPipe
 	default:
-		// log.Println("reading...")
 		n, err := cr.reader.Read(p)
 		if err != nil && err != io.EOF {
-			log.Printf("error reading: %v", err)
+			log.Printf("Error reading: %v", err)
 			return n, err
 		}
 		return n, io.EOF
@@ -63,16 +60,12 @@ func (cr *Reader) Read(p []byte) (int, error) {
 }
 
 func (cr *Reader) Seek(offset int64, whence int) (int64, error) {
-	// log.Println("cancelread.Seek()")
-
 	select {
 	case <-cr.Ctx.Done():
-		log.Println("done seeking")
 		return 0, io.ErrClosedPipe
 	default:
-		// log.Println("seeking...")
 		if _, err := cr.reader.(io.Seeker).Seek(offset, whence); err != nil {
-			log.Printf("error seeking: %v", err)
+			log.Printf("Error seeking: %v", err)
 			return 0, err
 		}
 		return cr.reader.(io.Seeker).Seek(0, 1) // Reset position to end
@@ -80,12 +73,10 @@ func (cr *Reader) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (cr *Reader) Cancel() error {
-	// log.Println("cancelread.Cancel()")
-
 	cr.cancel()
 	err := cr.file.Close()
 	if err != nil {
-		log.Printf("error closing file: %v", err)
+		log.Printf("Error closing file: %v", err)
 	}
 	return err
 }

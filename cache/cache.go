@@ -391,7 +391,7 @@ func updateCurrentResource(file string, hash string) {
 	}
 }
 
-func Update(w *http.ResponseWriter, r *http.Request) {
+func Update(w http.ResponseWriter, r *http.Request) {
 	// select a new file to display
 	body := map[string]template.HTML{}
 
@@ -421,7 +421,7 @@ func Update(w *http.ResponseWriter, r *http.Request) {
 	util.RespondJson(w, body)
 }
 
-func Close(w *http.ResponseWriter, r *http.Request) {
+func Close(w http.ResponseWriter, r *http.Request) {
 	// extract params from the request body
 	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
@@ -450,7 +450,7 @@ func Close(w *http.ResponseWriter, r *http.Request) {
 	util.RespondJson(w, body)
 }
 
-func File(w *http.ResponseWriter, r *http.Request) {
+func File(w http.ResponseWriter, r *http.Request) {
 	// serve the requested file by hash
 	s := strings.Replace(r.URL.Path, "{document.location.href}", "", 1)
 	hash := strings.Replace(s, "/file/", "", 1)
@@ -459,13 +459,11 @@ func File(w *http.ResponseWriter, r *http.Request) {
 	defer cache.lock.Unlock()
 	resource, ok := cache.lookup[hash]
 	if !ok || resource == nil || resource.reader == nil {
-		// log.Printf("404 from read: %v", r.URL.Path)
-
 		// serve 404
-		http.Error(*w, "Resource Not Found", http.StatusNotFound)
+		http.Error(w, "Resource Not Found", http.StatusNotFound)
 	} else {
-		// log.Printf("read is serving: %v", r.URL.Path)
-		// http.ServeFile(*w, r, resource.outputExt)
-		http.ServeContent(*w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+		// http.ServeFile(w, r, resource.outputExt)
+		w.Header().Set("Transfer-Encoding", "chunked")
+		http.ServeContent(w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
 	}
 }
