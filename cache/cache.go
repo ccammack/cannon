@@ -193,6 +193,16 @@ func newResource(file string, hash string) *Resource {
 	return resource
 }
 
+func addReader(resource *Resource) {
+	// serving streams requires a reader; nothing else should have one
+	if resource.stream {
+		resource.reader = cancelread.New(resource.outputExt)
+	} else if resource.reader != nil {
+		resource.reader.Cancel()
+		resource.reader = nil
+	}
+}
+
 func serveRaw(resource *Resource) bool {
 	// TODO: consider serving binary files by length and text files by line count
 	// right now, a really wide csv might only display the first line
@@ -223,7 +233,13 @@ func serveRaw(resource *Resource) bool {
 	// display the first part of the raw file
 	resource.html = "<xmp>" + s + "</xmp>"
 	resource.htmlHash = util.MakeHash(resource.html)
-	resource.reader = cancelread.New(resource.outputExt)
+	addReader(resource)
+
+	// serving raw content does not need a reader
+	// if resource.reader != nil {
+	// 	resource.reader.Cancel()
+	// 	resource.reader = nil
+	// }
 
 	return true
 }
@@ -260,7 +276,15 @@ func serveInput(resource *Resource, rule conversionRule) bool {
 	// replace placeholders
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
 	resource.htmlHash = util.MakeHash(resource.html)
-	resource.reader = cancelread.New(resource.outputExt)
+	addReader(resource)
+
+	// serving streams requires a reader; nothing else should have one
+	// if resource.stream {
+	// 	resource.reader = cancelread.New(resource.outputExt)
+	// } else if resource.reader != nil {
+	// 	resource.reader.Cancel()
+	// 	resource.reader = nil
+	// }
 
 	return true
 }
@@ -299,7 +323,7 @@ func serveCommand(resource *Resource, rule conversionRule) bool {
 	// save output html
 	resource.html = html
 	resource.htmlHash = util.MakeHash(resource.html)
-	resource.reader = cancelread.New(resource.outputExt)
+	addReader(resource)
 
 	return true
 }
@@ -494,7 +518,7 @@ func File(w http.ResponseWriter, r *http.Request) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	resource, ok := cache.lookup[hash]
-	if !ok || resource == nil || resource.reader == nil {
+	if !ok {
 		// serve 404
 		http.Error(w, "Resource Not Found", http.StatusNotFound)
 	} else if resource.stream {

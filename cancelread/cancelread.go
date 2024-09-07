@@ -78,6 +78,8 @@ func (cr *Reader) Cancel() error {
 	if err != nil {
 		log.Printf("Error closing file: %v", err)
 	}
+	cr.reader = nil
+	cr.file = nil
 	return err
 }
 
