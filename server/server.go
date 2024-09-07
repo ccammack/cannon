@@ -77,7 +77,7 @@ func Start() {
 
 func pageHandler(w http.ResponseWriter, r *http.Request) {
 	// handle route /status
-	data := cache.FormatCurrentResourceData()
+	data := cache.FormatPageContent()
 
 	// generate complete html page from template
 	t, err := template.New("page").Parse(cache.PageTemplate)
@@ -100,7 +100,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	data := map[string]template.HTML{
 		"status": "success",
 	}
-	maps.Copy(data, cache.FormatCurrentResourceData())
+	maps.Copy(data, cache.FormatPageContent())
 	util.RespondJson(w, data)
 }
 

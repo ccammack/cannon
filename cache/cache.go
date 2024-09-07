@@ -1,22 +1,16 @@
 package cache
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/ccammack/cannon/cancelread"
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
 	"golang.org/x/exp/maps"
@@ -62,269 +56,6 @@ func Exit() {
 	}
 }
 
-type conversionRule struct {
-	idx       int
-	matchExt  bool
-	Ext       []string
-	matchMime bool
-	Mime      []string
-	cmd       []string
-	html      string
-}
-
-func GetMimeType(file string) string {
-	_, command := config.Mime().Strings()
-	if len(command) > 0 {
-		cmd, args := util.FormatCommand(command, map[string]string{"{input}": file})
-		out, _ := exec.Command(cmd, args...).CombinedOutput()
-		return strings.TrimSuffix(string(out), "\n")
-	}
-	return ""
-}
-
-func matchConversionRules(file string) (string, []conversionRule) {
-	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
-	mimetype := strings.ToLower(GetMimeType(file))
-
-	matches := []conversionRule{}
-
-	rulesk, rulesv := config.Rules()
-	for idx, rule := range rulesv {
-		// TODO: add support for glob patterns
-		_, exts := rule.Ext.Strings()
-		matchExt := len(extension) > 0 && len(exts) > 0 && util.Find(exts, extension) < len(exts)
-
-		// TODO: add support for glob patterns
-		_, mimes := rule.Mime.Strings()
-		matchMime := len(mimetype) > 0 && len(mimes) > 0 && util.Find(mimes, mimetype) < len(mimes)
-
-		if matchExt || matchMime {
-			_, cmd := rule.Cmd.Strings()
-			_, html := rule.Html.String()
-
-			matches = append(matches, conversionRule{idx, matchExt, exts, matchMime, mimes, cmd, html})
-		}
-	}
-
-	return rulesk, matches
-}
-
-func findMatchingOutputFile(output string) string {
-	// find newly created files that match output*
-	// TODO: add a vars block to the YAML and remove this function
-	matches, err := filepath.Glob(output + "*")
-	if err != nil {
-		log.Printf("Error matching filename %s: %v", output, err)
-	}
-	if len(matches) > 2 {
-		log.Printf("Error matched too many files for %s: %v", output, matches)
-	}
-	for _, match := range matches {
-		if len(match) > len(output) {
-			output = match
-		}
-	}
-	return output
-}
-
-func runAndWait(resource *Resource, rule conversionRule) int {
-	cmd, args := util.FormatCommand(rule.cmd, map[string]string{
-		"{input}":  resource.input,
-		"{output}": resource.output,
-	})
-
-	// timeout
-	_, timeout := config.Timeout().Int()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Millisecond)
-	defer cancel()
-
-	// prepare command
-	var outb, errb bytes.Buffer
-	command := exec.CommandContext(ctx, cmd, args...)
-	command.Stdout = &outb
-	command.Stderr = &errb
-
-	// run command
-	err := command.Run()
-	resource.stdout = outb.String()
-	resource.stderr = errb.String()
-
-	// fail if the command takes too long
-	if ctx.Err() == context.DeadlineExceeded {
-		return 255
-	}
-
-	// collect and return exit code
-	exit := 0
-	if err != nil {
-		// there was an error
-		exit = 255
-
-		// extract the actual error
-		if exitError, ok := err.(*exec.ExitError); ok {
-			exit = exitError.ExitCode()
-		}
-	}
-
-	return exit
-}
-
-type Resource struct {
-	input     string // {input}
-	inputHash string
-	output    string // {output}
-	outputExt string // {outputExt}
-	html      string
-	htmlHash  string
-	stdout    string // {stdout}
-	stderr    string // {stderr}
-	reader    *cancelread.Reader
-	mime      string
-	stream    bool
-}
-
-// max display length for unknown file types
-const maxLength = 4096
-
-func newResource(file string, hash string) *Resource {
-	mime := GetMimeType(file)
-	stream := strings.HasPrefix(mime, "audio/") || strings.HasPrefix(mime, "video/")
-	resource := &Resource{file, hash, createPreviewFile(), file, "", "", "", "", nil, mime, stream}
-	return resource
-}
-
-func addReader(resource *Resource) {
-	// serving streams requires a reader; nothing else should have one
-	if resource.stream {
-		resource.reader = cancelread.New(resource.outputExt)
-	} else if resource.reader != nil {
-		resource.reader.Cancel()
-		resource.reader = nil
-	}
-}
-
-func serveRaw(resource *Resource) bool {
-	// TODO: consider serving binary files by length and text files by line count
-	// right now, a really wide csv might only display the first line
-	// and a really narrow csv will display too many lines
-	// add a maxLines config value or calculate it from maxLength
-	// automatically wrap binary files to fit the browser
-	// maybe use the curernt size of the browser window to calculate maxLines
-
-	length, err := util.GetFileLength(resource.input)
-	if err != nil {
-		log.Printf("Error getting length of %s: %v", resource.input, err)
-	}
-
-	bytes, count, err := util.GetFileBytes(resource.input, util.Min(maxLength, length))
-	if err != nil {
-		log.Printf("Error reading file %s: %v", resource.input, err)
-	}
-
-	if count == 0 {
-		log.Printf("Error reading empty file %s", resource.input)
-	}
-
-	s := string(bytes)
-	if length >= maxLength {
-		s += "\n\n[...]"
-	}
-
-	// display the first part of the raw file
-	resource.html = "<xmp>" + s + "</xmp>"
-	resource.htmlHash = util.MakeHash(resource.html)
-	addReader(resource)
-
-	// serving raw content does not need a reader
-	// if resource.reader != nil {
-	// 	resource.reader.Cancel()
-	// 	resource.reader = nil
-	// }
-
-	return true
-}
-
-func serveInput(resource *Resource, rule conversionRule) bool {
-	// serve the command if available
-	if len(rule.cmd) != 0 {
-		return false
-	}
-
-	// serve raw if missing html
-	if len(rule.html) == 0 {
-		return false
-	}
-
-	// replace placeholders
-	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
-	resource.htmlHash = util.MakeHash(resource.html)
-	addReader(resource)
-
-	// serving streams requires a reader; nothing else should have one
-	// if resource.stream {
-	// 	resource.reader = cancelread.New(resource.outputExt)
-	// } else if resource.reader != nil {
-	// 	resource.reader.Cancel()
-	// 	resource.reader = nil
-	// }
-
-	return true
-}
-
-func serveCommand(resource *Resource, rule conversionRule) bool {
-	// serve raw if missing command
-	if len(rule.cmd) == 0 {
-		return false
-	}
-
-	// run the command and wait
-	exit := runAndWait(resource, rule)
-	if exit != 0 {
-		// serve raw on command failure
-		return false
-	}
-
-	// generate output filename
-	// TODO: allow the user to define their own vars in config.yml
-	resource.outputExt = findMatchingOutputFile(resource.output)
-
-	// replace html placeholders
-	html := rule.html
-	html = strings.ReplaceAll(html, "{output}", resource.output)
-	html = strings.ReplaceAll(html, "{outputext}", resource.outputExt)
-	html = strings.ReplaceAll(html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
-	html = strings.ReplaceAll(html, "{stdout}", resource.stdout)
-	html = strings.ReplaceAll(html, "{stderr}", resource.stderr)
-
-	// replace {content} with the contents of {outputext}
-	b, err := os.ReadFile(resource.outputExt)
-	if err != nil {
-		html = strings.ReplaceAll(html, "{content}", string(b))
-	}
-
-	// save output html
-	resource.html = html
-	resource.htmlHash = util.MakeHash(resource.html)
-	addReader(resource)
-
-	return true
-}
-
-func createPreviewFile() string {
-	// create a temp directory on the first call
-	if len(cache.tempDir) == 0 {
-		dir, err := os.MkdirTemp("", "cannon")
-		util.CheckPanicOld(err)
-		cache.tempDir = dir
-	}
-
-	// create a temp file to hold the output preview file
-	fp, err := os.CreateTemp(cache.tempDir, "preview")
-	util.CheckPanicOld(err)
-	defer fp.Close()
-	return fp.Name()
-}
-
 func convert(file string, hash string, ch chan *Resource) {
 	resource := newResource(file, hash)
 
@@ -345,7 +76,7 @@ func convert(file string, hash string, ch chan *Resource) {
 	ch <- resource
 }
 
-func FormatCurrentResourceData() map[string]template.HTML {
+func FormatPageContent() map[string]template.HTML {
 	// set default values
 	_, interval := config.Interval().String()
 	data := map[string]template.HTML{

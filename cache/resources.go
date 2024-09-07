@@ -1,88 +1,137 @@
 package cache
 
-// type Resource struct {
-// 	ready         bool
-// 	inputName     string
-// 	inputNameHash string
-// 	// stdout         string
-// 	// stderr         string
-// 	combinedOutput string
-// 	outputName     string
-// 	html           string
-// 	htmlHash       string
-// }
+import (
+	"log"
+	"os"
+	"strings"
 
-// func getResource(hash string) (Resource, bool) {
-// 	cache.lock.Lock()
-// 	resource, ok := cache.lookup[hash]
-// 	cache.lock.Unlock()
-// 	return resource, ok
-// }
+	"github.com/ccammack/cannon/cancelread"
+	"github.com/ccammack/cannon/util"
+)
 
-// func setResource(hash string, resource Resource) {
-// 	cache.lock.Lock()
-// 	cache.lookup[hash] = resource
-// 	cache.lock.Unlock()
-// }
+type Resource struct {
+	input     string // {input}
+	inputHash string
+	output    string // {output}
+	outputExt string // {outputExt}
+	html      string
+	htmlHash  string
+	stdout    string // {stdout}
+	stderr    string // {stderr}
+	reader    *cancelread.Reader
+	mime      string
+	stream    bool
+}
 
-// func getCurrentHash() string {
-// 	cache.lock.Lock()
-// 	defer cache.lock.Unlock()
-// 	return cache.current
-// }
+func newResource(file string, hash string) *Resource {
+	mime := GetMimeType(file)
+	stream := strings.HasPrefix(mime, "audio/") || strings.HasPrefix(mime, "video/")
+	resource := &Resource{file, hash, createPreviewFile(), file, "", "", "", "", nil, mime, stream}
+	return resource
+}
 
-// func setCurrentHash(hash string) {
-// 	cache.lock.Lock()
-// 	cache.current = hash
-// 	cache.lock.Unlock()
-// }
+func addReader(resource *Resource) {
+	// serving streams requires a reader; nothing else should have one
+	if resource.stream {
+		resource.reader = cancelread.New(resource.outputExt)
+	} else if resource.reader != nil {
+		resource.reader.Cancel()
+		resource.reader = nil
+	}
+}
 
-// func createResource(file string, hash string) string {
-// 	// create a new resource for the file if it doesn't already exist
-// 	_, ok := getResource(hash)
-// 	if !ok {
-// 		preview := createPreviewFile()
+func serveRaw(resource *Resource) bool {
+	// max display length for unknown file types
+	const maxLength = 4096
 
-// 		// add a new entry for the resource
-// 		setResource(hash, Resource{
-// 			false,
-// 			file,
-// 			hash,
-// 			"",
-// 			preview,
-// 			"",
-// 			"",
-// 		})
+	// TODO: consider serving binary files by length and text files by line count
+	// right now, a really wide csv might only display the first line
+	// and a really narrow csv will display too many lines
+	// add a maxLines config value or calculate it from maxLength
+	// automatically wrap binary files to fit the browser
+	// maybe use the curernt size of the browser window to calculate maxLines
 
-// 		return preview
-// 	}
+	length, err := util.GetFileLength(resource.input)
+	if err != nil {
+		log.Printf("Error getting length of %s: %v", resource.input, err)
+	}
 
-// 	return ""
-// }
+	bytes, count, err := util.GetFileBytes(resource.input, util.Min(maxLength, length))
+	if err != nil {
+		log.Printf("Error reading file %s: %v", resource.input, err)
+	}
 
-// func getCreateResource(file string, hash string) Resource {
-// create a new resource for the file if it doesn't already exist
-// resource, ok := getResource(hash)
-// if !ok {
-// 	preview := createPreviewFile()
+	if count == 0 {
+		log.Printf("Error reading empty file %s", resource.input)
+	}
 
-// 	// add a new entry for the resource
-// 	setResource(hash, Resource{
-// 		false,
-// 		file,
-// 		hash,
-// 		"",
-// 		preview,
-// 		"",
-// 		"",
-// 	})
+	s := string(bytes)
+	if length >= maxLength {
+		s += "\n\n[...]"
+	}
 
-// 	resource, ok = getResource(hash)
-// 	if !ok {
-// 		log.Panic()
-// 	}
-// }
+	// display the first part of the raw file
+	resource.html = "<xmp>" + s + "</xmp>"
+	resource.htmlHash = util.MakeHash(resource.html)
+	addReader(resource)
 
-// return resource
-// 	return Resource{}
-// }
+	return true
+}
+
+func serveInput(resource *Resource, rule ConversionRule) bool {
+	// serve the command if available
+	if len(rule.cmd) != 0 {
+		return false
+	}
+
+	// serve raw if missing html
+	if len(rule.html) == 0 {
+		return false
+	}
+
+	// replace placeholders
+	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
+	resource.htmlHash = util.MakeHash(resource.html)
+	addReader(resource)
+
+	return true
+}
+
+func serveCommand(resource *Resource, rule ConversionRule) bool {
+	// serve raw if missing command
+	if len(rule.cmd) == 0 {
+		return false
+	}
+
+	// run the command and wait
+	exit := runAndWait(resource, rule)
+	if exit != 0 {
+		// serve raw on command failure
+		return false
+	}
+
+	// generate output filename
+	// TODO: allow the user to define their own vars in config.yml
+	resource.outputExt = findMatchingOutputFile(resource.output)
+
+	// replace html placeholders
+	html := rule.html
+	html = strings.ReplaceAll(html, "{output}", resource.output)
+	html = strings.ReplaceAll(html, "{outputext}", resource.outputExt)
+	html = strings.ReplaceAll(html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
+	html = strings.ReplaceAll(html, "{stdout}", resource.stdout)
+	html = strings.ReplaceAll(html, "{stderr}", resource.stderr)
+
+	// replace {content} with the contents of {outputext}
+	b, err := os.ReadFile(resource.outputExt)
+	if err != nil {
+		html = strings.ReplaceAll(html, "{content}", string(b))
+	}
+
+	// save output html
+	resource.html = html
+	resource.htmlHash = util.MakeHash(resource.html)
+	addReader(resource)
+
+	return true
+}
