@@ -255,24 +255,6 @@ func serveInput(resource *Resource, rule conversionRule) bool {
 		return false
 	}
 
-	// make a temp copy of non-streaming files
-	if !resource.stream {
-		src := resource.input
-		ext := filepath.Ext(src)
-		dst := resource.output + ext
-
-		ch := util.CopyFileContentsAsync(src, dst)
-		err := <-ch
-		if err != nil {
-			log.Printf("Error copying file: %v", err)
-			return false
-		}
-
-		// generate output filename
-		// TODO: allow the user to define their own vars in config.yml
-		resource.outputExt = findMatchingOutputFile(resource.output)
-	}
-
 	// replace placeholders
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
 	resource.htmlHash = util.MakeHash(resource.html)
