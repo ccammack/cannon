@@ -32,7 +32,7 @@ func platform() string {
 func hostname() string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Panicf("error reading hostname: %v", err)
+		log.Panicf("Error reading hostname: %v", err)
 	}
 	return strings.ToLower(hostname)
 }
@@ -57,12 +57,12 @@ func requiredInt(s string, ko *koanf.Koanf) gen.Pair {
 	// read the value as a string and convert to int
 	key, err := key(s, ko)
 	if err != nil {
-		log.Panicf("error finding required key: %v", err)
+		log.Panicf("Error finding required key: %v", err)
 	}
 	s = ko.String(key)
 	_, err = strconv.Atoi(s)
 	if err != nil {
-		log.Panicf("error converting required value to integer: %v", err)
+		log.Panicf("Error converting required value to integer: %v", err)
 	}
 	return gen.Pair{K: key, V: s}
 }
@@ -70,7 +70,7 @@ func requiredInt(s string, ko *koanf.Koanf) gen.Pair {
 func requiredStrings(s string, ko *koanf.Koanf) gen.Pair {
 	key, err := key(s, ko)
 	if err != nil {
-		log.Panicf("error finding required key: %v", err)
+		log.Panicf("Error finding required key: %v", err)
 	}
 	return gen.Pair{K: key, V: ko.Strings(key)}
 }
@@ -167,7 +167,7 @@ func RegisterCallback(callback func(string)) {
 func requiredExe(path string) {
 	_, err := exec.LookPath(path)
 	if err != nil {
-		log.Panicf("error finding specified executable: %v", err)
+		log.Panicf("Error finding required executable: %v", err)
 	}
 }
 
@@ -182,7 +182,7 @@ func postLoad() {
 	if logv != "" {
 		file, err := os.OpenFile(logv, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
-			log.Printf("error setting %s: %v", logk, err)
+			log.Printf("Error setting %s: %v", logk, err)
 		} else {
 			log.SetOutput(file)
 		}
@@ -213,7 +213,7 @@ func Validate() {
 		for _, app := range appsv {
 			err := optionalExe(app)
 			if err != nil {
-				log.Printf("error finding %s[%d].%s[%s]: %v", depsk, idx, appsk, app, err)
+				log.Printf("Error finding %s[%d].%s[%s]: %v", depsk, idx, appsk, app, err)
 				usage = true
 			}
 		}
@@ -229,7 +229,7 @@ func init() {
 	configFp = file.Provider(configPath)
 	err := config.Load(configFp, yaml.Parser())
 	if err != nil {
-		log.Panicf("error loading config: %v", err)
+		log.Panicf("Error loading config: %v", err)
 	}
 
 	// check required fields
@@ -243,14 +243,14 @@ func Start() {
 	// watch for config file changes and reload
 	configFp.Watch(func(event interface{}, err error) {
 		if err != nil {
-			log.Printf("watch error: %v", err)
+			log.Printf("Watch error: %v", err)
 			return
 		}
 
 		// reload config file
 		tmp := koanf.New(".")
 		if err := tmp.Load(configFp, yaml.Parser()); err != nil {
-			log.Printf("error loading config: %v", err)
+			log.Printf("Error loading config: %v", err)
 			return
 		}
 

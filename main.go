@@ -85,7 +85,7 @@ in a web browser using a static HTTP server.`,
 					var hash, file string
 					var err error
 					if hash, file, err = util.HashPath(v); err != nil {
-						log.Printf("error generating file hash: %v", err)
+						log.Printf("Error generating file hash: %v", err)
 					}
 					params := map[string]string{
 						"file": file,
@@ -124,7 +124,7 @@ in a web browser using a static HTTP server.`,
 			var hash, file string
 			var err error
 			if hash, file, err = util.HashPath(v); err != nil {
-				log.Printf("error generating file hash: %v", err)
+				log.Printf("Error generating file hash: %v", err)
 			}
 			params := map[string]string{
 				"file": file,

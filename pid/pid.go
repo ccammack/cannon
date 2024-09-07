@@ -3,7 +3,6 @@ package pid
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -16,23 +15,23 @@ import (
 var pidPath = xdg.RuntimeDir + "/cannon.pid"
 
 func pidfileContents() (int, error) {
-	contents, err := ioutil.ReadFile(pidPath)
+	contents, err := os.ReadFile(pidPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// file does not exist
 			return 0, nil
 		} else {
 			// file exists but cannot be read; requires manual intervention
-			log.Panicf("error reading PID file: %v", err)
-			// return 0, err
+			log.Panicf("Error reading PID file: %v", err)
+			return 0, err
 		}
 	}
 
 	pid, err := strconv.Atoi(strings.TrimSpace(string(contents)))
 	if err != nil {
 		// file exists but cannot be parsed; requires manual intervention
-		log.Panicf("error parsing PID file: %v", err)
-		// return 0, err
+		log.Panicf("Error parsing PID file: %v", err)
+		return 0, err
 	}
 
 	// found a valid pid
@@ -78,7 +77,7 @@ func Lock() error {
 	}
 
 	// write pid to file
-	return ioutil.WriteFile(pidPath, []byte(fmt.Sprintf("%d\n", os.Getpid())), 0644)
+	return os.WriteFile(pidPath, []byte(fmt.Sprintf("%d\n", os.Getpid())), 0644)
 }
 
 func Unlock() error {

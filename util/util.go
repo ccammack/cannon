@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -113,9 +112,9 @@ func Dirname() (string, error) {
 
 func CopyFile(input string, output string) {
 	// copy input file contents to output file
-	data, err := ioutil.ReadFile(input)
+	data, err := os.ReadFile(input)
 	CheckPanicOld(err)
-	err = ioutil.WriteFile(output, data, 0644)
+	err = os.WriteFile(output, data, 0644)
 	CheckPanicOld(err)
 }
 
@@ -180,12 +179,12 @@ func IsBinaryFile(file string) ([]byte, int, bool) {
 func HashPath(file string) (string, string, error) {
 	path, err := filepath.Abs(file)
 	if err != nil {
-		log.Printf("error generating absolute path: %v", err)
+		log.Printf("Error generating absolute path: %v", err)
 		return "", "", err
 	}
 	fp, err := os.Open(path)
 	if err != nil {
-		log.Printf("error opening file: %v", err)
+		log.Printf("Error opening file: %v", err)
 		return "", "", err
 	}
 	defer fp.Close()

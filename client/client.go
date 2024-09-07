@@ -27,7 +27,7 @@ func startBrowser(url string) {
 
 func Start() {
 	if err := pid.IsRunning(); err != nil {
-		log.Printf("error starting server: %v", err)
+		log.Printf("Error starting server: %v", err)
 	} else {
 		// port
 		_, port := config.Port().Int()
@@ -43,7 +43,7 @@ func Start() {
 
 func Stop() {
 	if err := pid.IsRunning(); err == nil {
-		log.Printf("error stopping server (already stopped?)")
+		log.Printf("Error stopping server (already stopped?)")
 	} else {
 		Request("POST", "stop", nil)
 	}
@@ -59,7 +59,7 @@ func Toggle() {
 
 func Request(method string, resource string, params map[string]string) {
 	if err := pid.IsRunning(); err == nil {
-		log.Printf("server is not running (use --start or --toggle to start)")
+		log.Printf("Server is not running (use --start or --toggle to start)")
 	}
 
 	_, port := config.Port().Int()
@@ -68,12 +68,12 @@ func Request(method string, resource string, params map[string]string) {
 	// prepare request
 	json, err := json.Marshal(params)
 	if err != nil {
-		log.Printf("error marshalling request params: %v", err)
+		log.Printf("Error marshalling request params: %v", err)
 		return
 	}
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(json))
 	if err != nil {
-		log.Printf("error creating request: %v", err)
+		log.Printf("Error creating request: %v", err)
 		return
 	}
 	req.Header.Set("Accept", "application/json")
@@ -82,7 +82,7 @@ func Request(method string, resource string, params map[string]string) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("error making request: %v", err)
+		log.Printf("Error making request: %v", err)
 		return
 	}
 
@@ -94,7 +94,7 @@ func Request(method string, resource string, params map[string]string) {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("error reading response: %v", err)
+		log.Printf("Error reading response: %v", err)
 		return
 	}
 

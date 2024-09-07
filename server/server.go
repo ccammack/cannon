@@ -32,7 +32,7 @@ func shutdown() {
 	go func() {
 		// shutdown
 		if err := server.Shutdown(context.Background()); err != nil {
-			log.Printf("error stopping server: %v", err)
+			log.Printf("Error stopping server: %v", err)
 		}
 	}()
 }
@@ -52,7 +52,7 @@ func Start() {
 	// log server address
 	_, port := config.Port().Int()
 	url := fmt.Sprintf("http://localhost:%d", port)
-	log.Printf("starting server: %s", url)
+	log.Printf("Starting server: %s", url)
 
 	// lock pid
 	pid.Lock()

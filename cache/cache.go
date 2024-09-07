@@ -114,10 +114,10 @@ func findMatchingOutputFile(output string) string {
 	// TODO: add a vars block to the YAML and remove this function
 	matches, err := filepath.Glob(output + "*")
 	if err != nil {
-		log.Printf("error matching filename %s: %v", output, err)
+		log.Printf("Error matching filename %s: %v", output, err)
 	}
 	if len(matches) > 2 {
-		log.Printf("error matched too many files for %s: %v", output, matches)
+		log.Printf("Error matched too many files for %s: %v", output, matches)
 	}
 	for _, match := range matches {
 		if len(match) > len(output) {
@@ -187,16 +187,16 @@ const maxLength = 4096
 func serveRaw(resource *Resource) bool {
 	length, err := util.GetFileLength(resource.input)
 	if err != nil {
-		log.Printf("error getting length of %s: %v", resource.input, err)
+		log.Printf("Error getting length of %s: %v", resource.input, err)
 	}
 
 	bytes, count, err := util.GetFileBytes(resource.input, util.Min(maxLength, length))
 	if err != nil {
-		log.Printf("error reading file %s: %v", resource.input, err)
+		log.Printf("Error reading file %s: %v", resource.input, err)
 	}
 
 	if count == 0 {
-		log.Printf("error reading empty file %s", resource.input)
+		log.Printf("Error reading empty file %s", resource.input)
 	}
 
 	s := string(bytes)
@@ -298,7 +298,7 @@ func convert(input string, inputHash string, ch chan *Resource) {
 		rule := rules[0]
 
 		if !serveInput(resource, rule) && !serveCommand(resource, rule) && !serveRaw(resource) {
-			log.Printf("error serving resource: %v", resource)
+			log.Printf("Error serving resource: %v", resource)
 		}
 	}
 
@@ -371,7 +371,7 @@ func updateCurrentResource(file string, hash string) {
 		go func() {
 			resource := <-ch
 			if resource == nil {
-				log.Printf("error converting file: %v", file)
+				log.Printf("Error converting file: %v", file)
 			}
 
 			cache.lock.Lock()
@@ -379,7 +379,7 @@ func updateCurrentResource(file string, hash string) {
 
 			// sanity check that the resource is not already in the lookup
 			if _, ok := cache.lookup[cache.currHash]; ok {
-				log.Printf("error creating resource: %v", file)
+				log.Printf("Error creating resource: %v", file)
 			}
 
 			// store the new resource in the lookup for next time
@@ -406,7 +406,7 @@ func Update(w http.ResponseWriter, r *http.Request) {
 
 	if file == "" || hash == "" {
 		body["status"] = template.HTML("error")
-		body["message"] = template.HTML(fmt.Sprintf("error reading file or hash: %s %s", file, hash))
+		body["message"] = template.HTML(fmt.Sprintf("Error reading file or hash: %s %s", file, hash))
 	} else {
 		body["status"] = template.HTML("success")
 
@@ -445,7 +445,7 @@ func Close(w http.ResponseWriter, r *http.Request) {
 		body["status"] = template.HTML("success")
 	} else {
 		body["status"] = template.HTML("error")
-		body["message"] = template.HTML("error finding reader")
+		body["message"] = template.HTML("Error finding reader")
 	}
 	util.RespondJson(w, body)
 }
