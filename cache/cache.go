@@ -170,22 +170,37 @@ func runAndWait(resource *Resource, rule conversionRule) int {
 }
 
 type Resource struct {
-	input      string // {input}
-	inputHash  string
-	output     string // {output}
-	outputExt  string // {outputExt}
-	outputMime string
-	html       string
-	htmlHash   string
-	stdout     string // {stdout}
-	stderr     string // {stderr}
-	reader     *cancelread.Reader
+	input     string // {input}
+	inputHash string
+	output    string // {output}
+	outputExt string // {outputExt}
+	html      string
+	htmlHash  string
+	stdout    string // {stdout}
+	stderr    string // {stderr}
+	reader    *cancelread.Reader
+	mime      string
+	stream    bool
 }
 
 // max display length for unknown file types
 const maxLength = 4096
 
+func newResource(file string, hash string) *Resource {
+	mime := GetMimeType(file)
+	stream := strings.HasPrefix(mime, "audio/") || strings.HasPrefix(mime, "video/")
+	resource := &Resource{file, hash, createPreviewFile(), file, "", "", "", "", nil, mime, stream}
+	return resource
+}
+
 func serveRaw(resource *Resource) bool {
+	// TODO: consider serving binary files by length and text files by line count
+	// right now, a really wide csv might only display the first line
+	// and a really narrow csv will display too many lines
+	// add a maxLines config value or calculate it from maxLength
+	// automatically wrap binary files to fit the browser
+	// maybe use the curernt size of the browser window to calculate maxLines
+
 	length, err := util.GetFileLength(resource.input)
 	if err != nil {
 		log.Printf("Error getting length of %s: %v", resource.input, err)
@@ -208,7 +223,6 @@ func serveRaw(resource *Resource) bool {
 	// display the first part of the raw file
 	resource.html = "<xmp>" + s + "</xmp>"
 	resource.htmlHash = util.MakeHash(resource.html)
-	resource.outputMime = GetMimeType(resource.outputExt)
 	resource.reader = cancelread.New(resource.outputExt)
 
 	return true
@@ -225,10 +239,27 @@ func serveInput(resource *Resource, rule conversionRule) bool {
 		return false
 	}
 
+	// make a temp copy of non-streaming files
+	if !resource.stream {
+		src := resource.input
+		ext := filepath.Ext(src)
+		dst := resource.output + ext
+
+		ch := util.CopyFileContentsAsync(src, dst)
+		err := <-ch
+		if err != nil {
+			log.Printf("Error copying file: %v", err)
+			return false
+		}
+
+		// generate output filename
+		// TODO: allow the user to define their own vars in config.yml
+		resource.outputExt = findMatchingOutputFile(resource.output)
+	}
+
 	// replace placeholders
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
 	resource.htmlHash = util.MakeHash(resource.html)
-	resource.outputMime = GetMimeType(resource.outputExt)
 	resource.reader = cancelread.New(resource.outputExt)
 
 	return true
@@ -268,7 +299,6 @@ func serveCommand(resource *Resource, rule conversionRule) bool {
 	// save output html
 	resource.html = html
 	resource.htmlHash = util.MakeHash(resource.html)
-	resource.outputMime = GetMimeType(resource.outputExt)
 	resource.reader = cancelread.New(resource.outputExt)
 
 	return true
@@ -289,11 +319,11 @@ func createPreviewFile() string {
 	return fp.Name()
 }
 
-func convert(input string, inputHash string, ch chan *Resource) {
-	resource := &Resource{input, inputHash, createPreviewFile(), input, "", "", "", "", "", nil}
+func convert(file string, hash string, ch chan *Resource) {
+	resource := newResource(file, hash)
 
 	// find the first matching configuration rule
-	_, rules := matchConversionRules(input)
+	_, rules := matchConversionRules(file)
 	if len(rules) == 0 {
 		// no matching rule found
 		serveRaw(resource)
@@ -467,21 +497,26 @@ func File(w http.ResponseWriter, r *http.Request) {
 	if !ok || resource == nil || resource.reader == nil {
 		// serve 404
 		http.Error(w, "Resource Not Found", http.StatusNotFound)
+	} else if resource.stream {
+		// stream native audio/video files
+		// fmt.Println("streaming")
+
+		// setting Transfer-Encoding makes the stream performance acceptable, but spams the log with errors:
+		// 		http: WriteHeader called with both Transfer-Encoding of "chunked" and a Content-Length of 782506548
+		// removing Content-Length doesn't work because http.ServeContent() adds it back again:
+		//		w.Header().Del("Content-Length")
+		w.Header().Set("Transfer-Encoding", "chunked")
+
+		// consider hijacking the writer's output and removing the Transfer-Encoding on the way out?
+		// consider using ServeFileFS with wrappers for fs.FS and io.Seeker?
+		// 		https://github.com/golang/go/issues/51971
+		//		https://pkg.go.dev/net/http#ServeFileFS
+		http.ServeContent(w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
 	} else {
-		stream := strings.HasPrefix(resource.outputMime, "audio/") || strings.HasPrefix(resource.outputMime, "video/")
-		if stream {
-			// serve audio and video as chunked
-			// TODO: fix this -> http: WriteHeader called with both Transfer-Encoding of "chunked" and a Content-Length of 782506548
-			// fmt.Println("streaming")
-			// w.Header().Set("Connection", "Keep-Alive")
-			// w.Header().Del("Content-Length")
-			// w.Header().Del("Accept-Encoding")
-			w.Header().Set("Transfer-Encoding", "chunked")
-			http.ServeContent(w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
-		} else {
-			// serve everything else in one go
-			// fmt.Println("one file")
-			http.ServeFile(w, r, resource.outputExt)
-		}
+		// serve everything else in one go
+		// fmt.Println("one file")
+
+		// TODO: lomg-term, stop using ServeFile in favor of something that allows the server to close the file during transfer
+		http.ServeFile(w, r, resource.outputExt)
 	}
 }

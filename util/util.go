@@ -130,22 +130,35 @@ func CheckPanic(err error, message string) {
 	}
 }
 
-func GetFileLength(filePath string) (int64, error) {
-	info, err := os.Stat(filePath)
+func GetFileLength(file string) (int64, error) {
+	info, err := os.Stat(file)
 	if err != nil {
 		return 0, err
 	}
 	return info.Size(), nil
+
+	// fp, err := os.Open(file)
+	// if err != nil {
+	// 	log.Printf("Error opening file: %v", err)
+	// 	return 0, err
+	// }
+	// defer fp.Close()
+	// fi, err := fp.Stat()
+	// if err != nil {
+	// 	log.Printf("Error getting file info: %v", err)
+	// 	return 0, err
+	// }
+	// return fi.Size(), nil
 }
 
-func GetFileBytes(filePath string, length int64) ([]byte, int64, error) {
+func GetFileBytes(file string, length int64) ([]byte, int64, error) {
 	buffer := make([]byte, length)
-	file, err := os.Open(filePath)
+	fp, err := os.Open(file)
 	if err != nil {
 		return buffer, 0, err
 	}
-	defer file.Close()
-	count, err := file.Read(buffer)
+	defer fp.Close()
+	count, err := fp.Read(buffer)
 	if err != nil && err != io.EOF {
 		return buffer, int64(count), err
 	}
@@ -190,4 +203,37 @@ func HashPath(file string) (string, string, error) {
 	defer fp.Close()
 	hash := MakeHash(path)
 	return hash, path, nil
+}
+
+func CopyFileContents(src, dst string) (err error) {
+	// https://stackoverflow.com/a/21067803
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	err = out.Sync()
+	return
+}
+
+func CopyFileContentsAsync(src, dst string) chan error {
+	ch := make(chan error)
+	go func() {
+		err := CopyFileContents(src, dst)
+		ch <- err
+	}()
+	return ch
 }
