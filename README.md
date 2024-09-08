@@ -1,18 +1,20 @@
 # Introduction
 
-Cannon is a browser based file previewer for terminal file managers like [lf](https://github.com/gokcehan/lf).
+Cannon is an experimental browser-based file previewer for terminal file managers like [lf](https://github.com/gokcehan/lf).
 
-It follows the rules defined in its configuration to sample and convert each selected file into its web equivalent and then serves the converted file to the localhost browser from an internal web server. It was originally written for Windows 8 but should run properly on any platform supported by Go.
+It follows rules defined in its configuration to sample and convert each selected file into its web equivalent and then serves the converted file to the browser from an internal web server. It was originally written for Windows 8 but should run properly on any platform supported by Go.
+
+![Cannon preview](cannon-preview.png "Cannon preview")
 
 # Installation
 
-Installing Cannon requires a recent version of [Go](https://go.dev/).
+Installing Cannon requires a recent version of [Go](https://go.dev/):
 
 ```
 go install -v github.com/ccammack/cannon@e5df1174d1838baccc984382d11a53a644ce4b6d
 ```
 
-After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/cannon.yml) to the appropriate location.
+After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate location:
 
 * On Windows, the configuration file should be copied to:
   * C:\Users\\**USERNAME**\\AppData\\Local\\cannon\\cannon.yml
@@ -20,28 +22,52 @@ After installation, copy the default [configuration file](https://github.com/cca
 * On Linux and other systems, the configuration file should be copied to:
   * ~/.config/cannon/cannon.yml
 
-Cannon depends on external programs for MIME detection, which are configured in the `mime:` section of `cannon.yml`. By default, this is accomplished on Linux using the built-in `file` command and on Windows using the version of `file` that ships with [`git` for Windows](https://gitforwindows.org/). If needed, install [`git` for Windows](https://gitforwindows.org/) and modify `cannon.yml` to use the correct path.
+# Configuration
 
+## MIME Type Detection
+
+Cannon relies on an external program to perform *MIME* type detection and the command to use is specified using the `*mime:` keys in the configuration. By default, this is accomplished on most platforms using the built-in `file` command:
+
+```yaml
+mime:           [ file, -b, --mime-type, '{input}' ]
 ```
-mime:
-  default: ['file', '-b', '--mime-type', '{input}']
-  windows: ['C:\Program Files\Git\usr\bin\file', '-b', '--mime-type', '{input}']
+
+On Windows, I specify the full path to the version of `file` that ships with [`git` for Windows](https://gitforwindows.org/), which I installed using [scoop](9https://scoop.sh/):
+
+```yaml
+os.windows.mime: [ C:/Users/ccammack/scoop/apps/git/current/usr/bin/file, -b, --mime-type, '{input}' ]
+```
+
+### Configuration Sharing
+
+To support shared configurations between hosts with only minor differences between them, all keys in the file may be prefixed to define per-platform and per-host exceptions to the default values. Use **os**.<[$GOOS](https://go.dev/doc/install/source#environment)>.<**key**> to define a different value for each operating system and **host**.<**hostname**>.<**key**> to define a different value for each machine. Below, the *port* is set to 8888 on all platforms except Windows machines, which use 7777. The host named *hal9k* uses port 9999 no matter which OS it runs.
+
+```yaml
+port:            8888
+os.windows.port: 7777
+host.hal9k.port: 9999
+```
+
+At runtime, the most specific matching key that exists for each value will be used, so matching *host* keys will have the highest priority, followed by matching *os* keys, followed by the *default* key for each value.
+
+> YAML configurations require consistent indentation on the left side.
+
+## Browser Selection
+
+Running `cannon --start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews.
+
+```yaml
+browser:            [ google-chrome,                                         --autoplay-policy=no-user-gesture-required, '{url}' ]
+
+os.windows.browser: [ C:/Program Files/Google/Chrome/Application/chrome.exe, --autoplay-policy=no-user-gesture-required, '{url}' ]
 ```
 
 # Running
 
-Starting `cannon` will automatically open a web browser for display. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured in the `browser:` section of `config.yml` as needed. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster previews.
+Run `cannon --quiet --start` in one console to start the server and open the browser, then open a second console and give it a native HTML media file to display, such as [Rube Goldberg's Self-Operating Napkin (1931)](Self-Operating_Napkin.gif "Image source: Wikimedia Commons"):
 
 ```
-browser:
-  default: ['google-chrome', '--autoplay-policy=no-user-gesture-required', '{url}']
-  windows: ['C:\Program Files (x86)\Google\Chrome\Application\chrome.exe', '--autoplay-policy=no-user-gesture-required', '{url}']
-```
-
-Run `cannon --start` in one console to start the server and open the browser, then open a second console and give it a native HTML media file to display, such as [Rube Goldberg's Self-Operating Napkin (1931)](Self-Operating_Napkin.gif "Image source: Wikimedia Commons").
-
-```
-cannon --start
+cannon --quiet --start
 ```
 
 ```
@@ -53,60 +79,80 @@ cannon --stop
 
 Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires that one map a key to toggle the server on and off and set the previewer. Integrating other file managers should follow a similar pattern.
 
-On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\lf\lfrc` to `map` the `T` key to toggle the server and set the `previewer` command to Cannon.
+On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\lf\lfrc` to `map` the `T` key to toggle the server and set the `previewer`:
 
-```
-# configure Cannon
-map T &cannon --toggle
+```ini
+# configure previews
+map T &cannon --quiet --toggle
 set previewer cannon
 ```
 
-On Linux, change the `lf` configuration file `~/.config/lf/lfrc` in a similar fashion.
 
-```
-# configure Cannon
-map T $(cannon --toggle &)
+On Linux, change the `lf` configuration file `~/.config/lf/lfrc` in a similar fashion:
+
+```ini
+# configure previews
+map T $(cannon --quiet --toggle &)
 set previewer cannon
 ```
 
-Start `lf` as usual and then press `T` to start the server and open the preview browser.
-Browse the file system using `lf` and file previews should appear in the browser window.
-Press `T` again to stop the server.
+Start `lf` as usual and then press `T` to start the server and open the preview browser. Browse the file system using `lf` and file previews should appear in the browser window. Press `T` again to stop the server.
 
 ![Cannon preview](cannon-preview.png "Cannon preview")
 
-# File Conversion Rules
+# Closing Files
 
-> Each of the command-related sections in the configuration file allows one to specify a `default` command and then override that with a *platform-specific* command
-using the names defined in the **$GOOS** list [here](https://go.dev/doc/install/source#environment).
+Cannon will stream native audio and video files to the browser when selected, but this locks the file and prevents `lf` from deleting or moving it elsewhere. Use `cannon --quiet --close` to close a file and allow delete and move operations to proceed. For example, this Powershell *move* script closes each selected file before attempting to move it in case the file is currently streaming:
+
+```PS1
+# move all of the files listed in $env:fx into the output directory
+$lines = [String[]]$env:fx
+$lines = $lines.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) 
+foreach ($line in $lines) {
+	# trim spaces and double quotes
+	$line = $line.Trim().Trim('"').Trim()
+
+	# tell cannon to close the file
+	& cannon --quiet --close $line
+
+	# allow long pathnames
+	$line = "\\?\" + $line
+
+	# move the file
+	Move-Item -LiteralPath $line -Destination $dest
+}
+```
+
+# File Conversion Rules
 
 Web browsers support a limited set of native HTML media files, so displaying other file types requires installing additional software and configuring Cannon to handle each file type. For example, [`ffmpeg`](https://ffmpeg.org/) can convert most audio and video files to a native format, [`ImageMagick`](https://imagemagick.org/) can convert most image formats, and [`MuPDF`](https://mupdf.com/) can convert the first page of a PDF to an image so it can be displayed in the browser.
 
-To do this, install the desired conversion software, then configure the `file_conversion_rules:` section in `cannon.yml` to manage each conversion. The `file_conversion_rules:` section is processed in order from top to bottom. Each rule attempts to match the file against a list of file extensions (`ext`) and MIME types (`mime`).
+To do this, install the desired conversion software, then configure the `*rules:` keys for each type to manage each conversion. The rules are processed in order from top to bottom, and each rule attempts to match the file against a list of file extensions (`*ext:`) and MIME types (`*mime:`).
 
-When a match is found, Cannon will run the associated `command` to produce an output file and then serve the file using the specified HTML `tag`. If a rule does not specify a `command`, Cannon will just serve the original file.
+When a match is found, Cannon will run the associated `*cmd:` to produce an output file and then serve the file using the specified `*html:`. If a rule does not specify a `*cmd:`, Cannon will attempt to serve the original file.
 
-For example, `mp3` and `wav` files can be served directly using the `<audio>` tag without running a conversion. The `{url}` parameter is required for each `tag` definition.
+For example, `mp3` and `wav` files can be served directly using the `<audio>` tag without running a conversion. The `{url}` parameter is required for each `*html:` key:
 
-```
-- # native html5 audio formats do not need conversion
-  ext: [mp3, wav]
-  tag: <audio autoplay loop controls src='{url}'>
-```
-
-All other audio files require sampling and conversion using `ffmpeg` to create a short audio preview. The `{input}` and `{output}` parameters are required for this conversion. The `{output}` parameter may specify an extension.
-
-```
-- # use ffmpeg to sample the first few seconds of non-native audio files
-  mime: [audio]
-  command:
-    default: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
-    windows: ['ffmpeg', '-ss', '0', '-i', '{input}', '-t', '5', '{output}.wav']
-  tag: <audio autoplay loop controls src='{url}'>
+```yaml
+  - ################################################################
+    # native audio extensions
+    ext:  [ mp3, wav ]
+    html: <audio autoplay loop controls src='{url}'>
 ```
 
-If none of the conversion rules match, Cannon will display the first 4K bytes of the file.
-If a conversion `command` is not provided, Cannon will serve the input file.
-If the conversion `command` does not specify an `{output}` parameter or gives an error when run,
-Cannon will serve the combined `stdout+stderr` created by the conversion `command`.
-If a `tag` parameter is not provided, Cannon will display the output inside `<xmp>` tags.
+All other audio files require sampling and conversion using `ffmpeg` to create a short audio preview. The `{input}` and `{output}` parameters are required for this conversion. The `{output}` parameter may specify an extension:
+
+```yaml
+  - ################################################################
+    # non-native audio types
+    mime: [ audio ]
+
+    # use ffmpeg to sample the first few seconds of audio
+    cmd:  [ ffmpeg, -ss, 0, -i, '{input}', -t, 3, '{output}.wav' ]
+
+    html: <audio autoplay loop controls src='{url}'>
+```
+
+# Default File Conversions
+
+If none of the conversion rules match or the specified conversion `*cmd:` fails, Cannon will display the first part of the file as raw data inside `<xmp>` tags. If a rule matches but a conversion `*cmd:` is not provided, Cannon will attempt to serve the original input file.
