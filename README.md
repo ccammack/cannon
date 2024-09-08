@@ -4,7 +4,7 @@ Cannon is an experimental browser-based file previewer for terminal file manager
 
 It follows rules defined in its configuration to sample and convert each selected file into its web equivalent and then serves the converted file to the browser from an internal web server. It was originally written for Windows 8 but should run properly on any platform supported by Go.
 
-![Cannon preview](cannon-preview.png "Cannon preview")
+![Cannon demo](cannon-demo.gif "Cannon demo")
 
 # Installation
 
@@ -118,8 +118,6 @@ set previewer cannon
 ```
 
 Start `lf` as usual and then press `T` to start the server and open the preview browser. Browse the file system using `lf` and file previews should appear in the browser window. Press `T` again to stop the server.
-
-![Cannon preview](cannon-preview.png "Cannon preview")
 
 # Closing Files
 
