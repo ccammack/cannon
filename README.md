@@ -32,13 +32,37 @@ Cannon relies on an external program to perform *MIME* type detection and the co
 mime:           [ file, -b, --mime-type, '{input}' ]
 ```
 
-On Windows, I specify the full path to the version of `file` that ships with [`git` for Windows](https://gitforwindows.org/), which I installed using [scoop](9https://scoop.sh/):
+On Windows, I use an environment variable to specify the full path to the version of `file` that ships with [`git` for Windows](https://gitforwindows.org/), which I installed using [scoop](9https://scoop.sh/):
 
 ```yaml
-os.windows.mime: [ C:/Users/ccammack/scoop/apps/git/current/usr/bin/file, -b, --mime-type, '{input}' ]
+os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, --mime-type, '{input}' ]
 ```
 
-### Configuration Sharing
+## Browser Selection
+
+Running `cannon --start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews.
+
+```yaml
+browser:            [ google-chrome,                                         --autoplay-policy=no-user-gesture-required, '{url}' ]
+
+os.windows.browser: [ '{env.ProgramFiles}/Google/Chrome/Application/chrome.exe', --autoplay-policy=no-user-gesture-required, '{url}' ]
+```
+
+## Placeholder Patterns
+
+The configuration file supports several kinds of `{placeholder}` strings which will be replaced with their current values at runtime:
+
+* Most configuration values will accept the `'{env.*}'` placeholder to insert an environment variable
+
+* `*mime:` values require the `'{input}'` placeholder
+
+* `*browser:` values require the `'{url}'` placeholder
+
+* `*cmd:` values requires the `'{input}'` placeholder and will also accept an optional `'{output}'` placeholder that may include an extension: `'{output}.jpg'`
+
+* `*html:` values generally use `'{url}'` to refer to the output file, but may also use `'{stdout}'` or `'{content}'` to directly capture the output from a successful file conversion
+
+## Configuration Sharing
 
 To support shared configurations between hosts with only minor differences between them, all keys in the file may be prefixed to define per-platform and per-host exceptions to the default values. Use **os**.<[$GOOS](https://go.dev/doc/install/source#environment)>.<**key**> to define a different value for each operating system and **host**.<**hostname**>.<**key**> to define a different value for each machine. Below, the *port* is set to 8888 on all platforms except Windows machines, which use 7777. The host named *hal9k* uses port 9999 no matter which OS it runs.
 
@@ -52,14 +76,13 @@ At runtime, the most specific matching key that exists for each value will be us
 
 > YAML configurations require consistent indentation on the left side.
 
-## Browser Selection
+## Dependencies
 
-Running `cannon --start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews.
+The optional `*deps:` key can be used to make sure the expected file conversion programs are installed and warn the user if not. On `cannon --start`, the program will check all of the executables specified in `*deps:*apps:` to make sure they exist and can be run. If not, Cannon will output the corresponding description specified in `*deps:*desc:` to give the user installation instructions for the missing program.
 
-```yaml
-browser:            [ google-chrome,                                         --autoplay-policy=no-user-gesture-required, '{url}' ]
-
-os.windows.browser: [ C:/Program Files/Google/Chrome/Application/chrome.exe, --autoplay-policy=no-user-gesture-required, '{url}' ]
+```ps1
+Error finding deps[3].apps[chroma]: exec: "chroma": executable file not found in %PATH%
+https://github.com/alecthomas/chroma/releases (download/extract into the $PATH)
 ```
 
 # Running
@@ -75,18 +98,17 @@ cannon Self-Operating_Napkin.gif
 cannon --stop
 ```
 
-# Integration
+# File Manager Integration
 
 Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires that one map a key to toggle the server on and off and set the previewer. Integrating other file managers should follow a similar pattern.
 
-On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\lf\lfrc` to `map` the `T` key to toggle the server and set the `previewer`:
+On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\lf\lfrc` to `map` the `T` key to toggle the server and set the value for the `previewer`:
 
 ```ini
 # configure previews
 map T &cannon --quiet --toggle
 set previewer cannon
 ```
-
 
 On Linux, change the `lf` configuration file `~/.config/lf/lfrc` in a similar fashion:
 
@@ -153,6 +175,6 @@ All other audio files require sampling and conversion using `ffmpeg` to create a
     html: <audio autoplay loop controls src='{url}'>
 ```
 
-# Default File Conversions
+# Default File Display
 
 If none of the conversion rules match or the specified conversion `*cmd:` fails, Cannon will display the first part of the file as raw data inside `<xmp>` tags. If a rule matches but a conversion `*cmd:` is not provided, Cannon will attempt to serve the original input file.

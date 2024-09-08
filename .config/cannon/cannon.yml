@@ -1,7 +1,7 @@
 
 # all keys in this file may be prefixed to define per-platform and per-host values
 #
-#     use os.<goos>.<key> to set per-OS values using $GOOS: https://go.dev/doc/install/source#environment
+#     use os.<$GOOS>.<key> to set per-OS values using $GOOS: https://go.dev/doc/install/source#environment
 #     use host.<name>.<key> to set per-host values using the lowercase hostname
 #         port:            8888
 #         os.windows.port: 7777
@@ -25,19 +25,19 @@ exit: 255
 
 # define the logfile ($ tail -f <logfile>)
 #logfile:            /tmp/cannon.log
-#os.windows.logfile: C:/tmp/cannon.log
+#os.windows.logfile: '{env.TEMP}/cannon.log'
 
 # specify command and args to start the preview browser
 #     use "browser: []" to prevent the browser from starting when running over SSH
 #     specify the '{url}' placeholder arg in the correct position so cannon can insert the server url
 #     specify the appropriate argument for the browser to enable auto-play for faster media previews
-browser:            [ google-chrome,                                         --autoplay-policy=no-user-gesture-required, '{url}' ]
-os.windows.browser: [ C:/Program Files/Google/Chrome/Application/chrome.exe, --autoplay-policy=no-user-gesture-required, '{url}' ]
+browser:            [ google-chrome,                                             --autoplay-policy=no-user-gesture-required, '{url}' ]
+os.windows.browser: [ '{env.ProgramFiles}/Google/Chrome/Application/chrome.exe', --autoplay-policy=no-user-gesture-required, '{url}' ]
 
 # specify command and args to detect the input file's mime-type
 #     specify the '{input}' placeholder arg in the correct position so cannon can insert the selected file
-mime:            [ file,                                                  -b, --mime-type, '{input}' ]
-os.windows.mime: [ C:/Users/ccammack/scoop/apps/git/current/usr/bin/file, -b, --mime-type, '{input}' ]
+mime:            [ file,                                                    -b, --mime-type, '{input}' ]
+os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, --mime-type, '{input}' ]
 
 # deps: (optional) specify the command line applications required to perform file conversions
 #     the existence of each application will be validated on --start and the missing ones will be logged

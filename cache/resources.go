@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ccammack/cannon/cancelread"
+	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/util"
 )
 
@@ -116,16 +117,19 @@ func serveCommand(resource *Resource, rule ConversionRule) bool {
 
 	// replace html placeholders
 	html := rule.html
-	html = strings.ReplaceAll(html, "{output}", resource.output)
-	html = strings.ReplaceAll(html, "{outputext}", resource.outputExt)
-	html = strings.ReplaceAll(html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
-	html = strings.ReplaceAll(html, "{stdout}", resource.stdout)
-	html = strings.ReplaceAll(html, "{stderr}", resource.stderr)
+	html = config.ReplaceEnvPlaceholders(html)
+	html = config.ReplacePlaceholder(html, "{output}", resource.output)
+	html = config.ReplacePlaceholder(html, "{outputext}", resource.outputExt)
+	html = config.ReplacePlaceholder(html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
+	html = config.ReplacePlaceholder(html, "{stdout}", resource.stdout)
+	html = config.ReplacePlaceholder(html, "{stderr}", resource.stderr)
 
-	// replace {content} with the contents of {outputext}
-	b, err := os.ReadFile(resource.outputExt)
-	if err != nil {
-		html = strings.ReplaceAll(html, "{content}", string(b))
+	// replace {content} with the contents of the resource.outputExt file
+	if strings.Contains(html, "{content}") {
+		b, err := os.ReadFile(resource.outputExt)
+		if err != nil {
+			html = config.ReplacePlaceholder(html, "{content}", string(b))
+		}
 	}
 
 	// save output html

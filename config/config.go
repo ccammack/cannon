@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -53,28 +53,6 @@ func key(key string, ko *koanf.Koanf) (string, error) {
 	return key, errors.New(key)
 }
 
-func requiredInt(s string, ko *koanf.Koanf) gen.Pair {
-	// read the value as a string and convert to int
-	key, err := key(s, ko)
-	if err != nil {
-		log.Panicf("Error finding required key: %v", err)
-	}
-	s = ko.String(key)
-	_, err = strconv.Atoi(s)
-	if err != nil {
-		log.Panicf("Error converting required value to integer: %v", err)
-	}
-	return gen.Pair{K: key, V: s}
-}
-
-func requiredStrings(s string, ko *koanf.Koanf) gen.Pair {
-	key, err := key(s, ko)
-	if err != nil {
-		log.Panicf("Error finding required key: %v", err)
-	}
-	return gen.Pair{K: key, V: ko.Strings(key)}
-}
-
 func optionalString(s string, ko *koanf.Koanf) gen.Pair {
 	key, err := key(s, ko)
 	if err != nil {
@@ -91,12 +69,65 @@ func optionalStrings(s string, ko *koanf.Koanf) gen.Pair {
 	return gen.Pair{K: key, V: ko.Strings(key)}
 }
 
-func Port() gen.Pair     { return requiredInt("port", config) }
-func Interval() gen.Pair { return requiredInt("interval", config) }
-func Timeout() gen.Pair  { return requiredInt("timeout", config) }
-func Exit() gen.Pair     { return requiredInt("exit", config) }
-func Mime() gen.Pair     { return requiredStrings("mime", config) }
-func Browser() gen.Pair  { return optionalStrings("browser", config) }
+func ReplacePlaceholder(s, placeholder, replacement string) string {
+	return strings.ReplaceAll(s, placeholder, replacement)
+}
+
+func ReplaceEnvPlaceholders(s string) string {
+	re := regexp.MustCompile(`\{env.(.+)\}`)
+	for {
+		matches := re.FindStringSubmatch(s)
+		if matches == nil {
+			break
+		}
+
+		env := matches[1]
+		value := os.Getenv(env)
+		if value == "" {
+			log.Printf("error looking for env var: %s", env)
+			break
+		}
+
+		value = strings.ReplaceAll(value, "\\", "/")
+		s = strings.Replace(s, `{env.`+env+`}`, value, 1)
+	}
+	return s
+}
+
+func applyEnvPlaceholder(key string, required bool, ko *koanf.Koanf) gen.Pair {
+	var output string
+	pair := optionalString(key, ko)
+	if required && pair.V == nil {
+		log.Panicf("Error trying to find required key: %v", pair)
+	}
+	k, entry := pair.String()
+	output = ReplaceEnvPlaceholders(entry)
+	return gen.Pair{K: k, V: output}
+}
+
+func applyEnvPlaceholders(key string, required bool, ko *koanf.Koanf) gen.Pair {
+	var output []string
+	pair := optionalStrings(key, ko)
+	if required && pair.V == nil {
+		log.Panicf("Error trying to find required key: %v", pair)
+	}
+	k, entries := pair.Strings()
+	if required && len(entries) == 0 {
+		log.Panicf("Error trying to find required values: %v", pair)
+	}
+	for _, v := range entries {
+		output = append(output, ReplaceEnvPlaceholders(v))
+	}
+	return gen.Pair{K: k, V: output}
+}
+
+func Port() gen.Pair     { return applyEnvPlaceholder("port", true, config) }
+func Interval() gen.Pair { return applyEnvPlaceholder("interval", true, config) }
+func Timeout() gen.Pair  { return applyEnvPlaceholder("timeout", true, config) }
+func Exit() gen.Pair     { return applyEnvPlaceholder("exit", true, config) }
+func Logfile() gen.Pair  { return applyEnvPlaceholder("logfile", false, config) }
+func Mime() gen.Pair     { return applyEnvPlaceholders("mime", true, config) }
+func Browser() gen.Pair  { return applyEnvPlaceholders("browser", false, config) }
 
 type FileConversionDep struct {
 	Apps gen.Pair
@@ -116,8 +147,8 @@ func Deps() (string, []FileConversionDep) {
 	// clone the the rules
 	deps := []FileConversionDep{}
 	for _, v := range config.Slices(key) {
-		apps := optionalStrings("apps", v)
-		desc := optionalString("desc", v)
+		apps := applyEnvPlaceholders("apps", false, v)
+		desc := applyEnvPlaceholder("desc", false, v)
 		deps = append(deps, FileConversionDep{apps, desc})
 	}
 
@@ -148,7 +179,7 @@ func Rules() (string, []FileConversionRule) {
 	for _, v := range config.Slices(key) {
 		ext := optionalStrings("ext", v)
 		mime := optionalStrings("mime", v)
-		cmd := optionalStrings("cmd", v)
+		cmd := applyEnvPlaceholders("cmd", false, v)
 
 		html := optionalString("html", v)
 
@@ -178,7 +209,7 @@ func optionalExe(path string) error {
 
 func postLoad() {
 	// redirect log output to logfile if defined
-	logk, logv := optionalString("logfile", config).String()
+	logk, logv := Logfile().String()
 	if logv != "" {
 		file, err := os.OpenFile(logv, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
