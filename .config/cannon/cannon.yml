@@ -68,10 +68,10 @@ deps:
     desc: https://github.com/alecthomas/chroma/releases (download/extract into the $PATH)
 
 # specify rules to convert each file type into its web equivalent for display in the browser
-#     completely independent rule sets can be defined using os.<goos>.rules and host.<name>.rules
+#     completely independent rule sets can be defined using os.<$GOOS>.rules and host.<name>.rules
 #     rule sets are evaluated in order from top to bottom and the first matching rule will run
 #     each entry in the rule set uses the keys described below
-#     keys can be overloaded using os.<goos>.key and host.<name>.key to handle special cases
+#     keys can be overloaded using os.<$GOOS>.key and host.<name>.key to handle special cases
 #
 #     ext|mime: specify patterns to match either the file extension or mime type
 #          cmd: specify the file conversion command to run when a matching input file is found

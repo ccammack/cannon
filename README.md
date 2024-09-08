@@ -32,7 +32,7 @@ Cannon relies on an external program to perform *MIME* type detection and the co
 mime:           [ file, -b, --mime-type, '{input}' ]
 ```
 
-On Windows, I use an environment variable to specify the full path to the version of `file` that ships with [`git` for Windows](https://gitforwindows.org/), which I installed using [scoop](9https://scoop.sh/):
+On Windows, I use an environment variable to specify the full path to the version of `file` that ships with [`git` for Windows](https://gitforwindows.org/), which I installed using [scoop](https://scoop.sh/):
 
 ```yaml
 os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, --mime-type, '{input}' ]
