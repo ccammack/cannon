@@ -28,8 +28,7 @@ const PageTemplate = `
 		</title>
 		<style>
 			div {
-				width:95vw;
-				height:95vh;
+				width:100%;
 			}
 			img {
 				max-width: 100%;
