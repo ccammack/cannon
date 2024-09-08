@@ -11,7 +11,7 @@ It follows rules defined in its configuration to sample and convert each selecte
 Installing Cannon requires a recent version of [Go](https://go.dev/):
 
 ```
-go install -v github.com/ccammack/cannon@e5df1174d1838baccc984382d11a53a644ce4b6d
+go install -v github.com/ccammack/cannon@570345c57a0d26919d8a1666412ff3b17ad182d7
 ```
 
 After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate location:
@@ -43,8 +43,7 @@ os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, 
 Running `cannon --start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews.
 
 ```yaml
-browser:            [ google-chrome,                                         --autoplay-policy=no-user-gesture-required, '{url}' ]
-
+browser:            [ google-chrome,                                             --autoplay-policy=no-user-gesture-required, '{url}' ]
 os.windows.browser: [ '{env.ProgramFiles}/Google/Chrome/Application/chrome.exe', --autoplay-policy=no-user-gesture-required, '{url}' ]
 ```
 
