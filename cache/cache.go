@@ -2,6 +2,7 @@ package cache
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -249,6 +250,14 @@ func File(w http.ResponseWriter, r *http.Request) {
 		// 		https://github.com/golang/go/issues/51971
 		//		https://pkg.go.dev/net/http#ServeFileFS
 		http.ServeContent(w, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+
+		// rw := http.ResponseWriter(w)
+		// rw.Header().Set("Content-Length", "-1")
+		// rw.Header().Del("Content-Length")
+		// rw.Header().Set("Transfer-Encoding", "chunked")
+		// http.ServeContent(rw, r, filepath.Base(resource.reader.Path), resource.reader.Info.ModTime(), resource.reader)
+		// ServeHTTP(resource, rw, r)
+
 	} else {
 		// serve everything else in one go
 		// fmt.Println("one file")
@@ -256,4 +265,50 @@ func File(w http.ResponseWriter, r *http.Request) {
 		// TODO: lomg-term, stop using ServeFile in favor of something that allows the server to close the file during transfer
 		http.ServeFile(w, r, resource.outputExt)
 	}
+}
+
+func ServeHTTP(resource *Resource, w http.ResponseWriter, r *http.Request) {
+	// defer sfh.file.Close()
+
+	fmt.Println("ServeHTTP() @ top")
+
+	fmt.Printf("%v\n", r)
+
+	sfh := resource.reader
+
+	var buffer = make([]byte, int(sfh.Info.Size()))
+	_, err := sfh.File.Read(buffer)
+	if err != nil {
+		fmt.Println("ServeHTTP() @ 1")
+		log.Println(errors.New("error with writing file: " + "\nerror message: " + err.Error() + "\n"))
+	}
+
+	fmt.Println("ServeHTTP() @ 2", len(buffer))
+
+	sfh.File.Seek(0, 0)
+	contentType := http.DetectContentType(buffer)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-type", contentType)
+
+	fmt.Println("ServeHTTP() @ 3")
+
+	fmt.Println("ServeHTTP() @ 4", len(buffer))
+
+	for _, b := range buffer {
+		select {
+		case <-sfh.Ctx.Done():
+			fmt.Println("Transfer cancelled")
+			http.Error(w, "Transfer cancelled", http.StatusGone)
+			return
+		default:
+			a := []byte{b}
+			w.Write(a)
+		}
+	}
+
+	fmt.Println("ServeHTTP() @ 5")
+
+	fmt.Println("ServeHTTP() @ bottom")
 }

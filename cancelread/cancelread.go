@@ -10,7 +10,7 @@ import (
 
 type Reader struct {
 	Path   string
-	file   *os.File
+	File   *os.File
 	Info   fs.FileInfo
 	Ctx    context.Context
 	reader io.Reader
@@ -37,7 +37,7 @@ func New(path string) *Reader {
 
 	return &Reader{
 		Path:   path,
-		file:   file,
+		File:   file,
 		Info:   info,
 		Ctx:    ctx,
 		reader: file,
@@ -74,12 +74,12 @@ func (cr *Reader) Seek(offset int64, whence int) (int64, error) {
 
 func (cr *Reader) Cancel() error {
 	cr.cancel()
-	err := cr.file.Close()
+	err := cr.File.Close()
 	if err != nil {
 		log.Printf("Error closing file: %v", err)
 	}
 	cr.reader = nil
-	cr.file = nil
+	cr.File = nil
 	return err
 }
 
