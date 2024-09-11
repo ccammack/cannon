@@ -84,17 +84,12 @@ func runAndWait(resource *Resource, rule ConversionRule) int {
 	return exit
 }
 
-func createPreviewFile() string {
-	// create a temp directory on the first call
-	if len(cache.tempDir) == 0 {
-		dir, err := os.MkdirTemp("", "cannon")
-		util.CheckPanicOld(err)
-		cache.tempDir = dir
-	}
-
+func createPreviewFile(tempDir string) string {
 	// create a temp file to hold the output preview file
-	fp, err := os.CreateTemp(cache.tempDir, "preview")
-	util.CheckPanicOld(err)
+	fp, err := os.CreateTemp(tempDir, "preview")
+	if err != nil {
+		log.Panicf("error creating temp file: %v", err)
+	}
 	defer fp.Close()
 	return fp.Name()
 }

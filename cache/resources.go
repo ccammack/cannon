@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ccammack/cannon/cancelread"
 	"github.com/ccammack/cannon/config"
+	"github.com/ccammack/cannon/readseeker"
 	"github.com/ccammack/cannon/util"
 )
 
@@ -19,26 +19,39 @@ type Resource struct {
 	htmlHash  string
 	stdout    string // {stdout}
 	stderr    string // {stderr}
-	reader    *cancelread.Reader
+	reader    *readseeker.ReadSeeker
 	mime      string
-	stream    bool
+	Ready     bool
+}
+
+func (resource *Resource) convert() {
+	// find the first matching configuration rule
+	_, rules := matchConversionRules(resource.input)
+	if len(rules) == 0 {
+		// no matching rule found
+		serveRaw(resource)
+	} else {
+		// apply the first matching rule
+		rule := rules[0]
+
+		if !serveInput(resource, rule) && !serveCommand(resource, rule) && !serveRaw(resource) {
+			log.Printf("Error serving resource: %v", resource)
+		}
+	}
+
+	// give it a reader
+	// TODO: figure out how to wait for the output file to be closed before creating the readseeker
+	resource.reader = readseeker.New(resource.outputExt)
+
+	// work complete
+	resource.Ready = true
 }
 
 func newResource(file string, hash string) *Resource {
 	mime := GetMimeType(file)
-	stream := strings.HasPrefix(mime, "audio/") || strings.HasPrefix(mime, "video/")
-	resource := &Resource{file, hash, createPreviewFile(), file, "", "", "", "", nil, mime, stream}
+	resource := &Resource{file, hash, createPreviewFile(tempDir), file, "", "", "", "", nil, mime, false}
+	go resource.convert()
 	return resource
-}
-
-func addReader(resource *Resource) {
-	// serving streams requires a reader; nothing else should have one
-	if resource.stream {
-		resource.reader = cancelread.New(resource.outputExt)
-	} else if resource.reader != nil {
-		resource.reader.Cancel()
-		resource.reader = nil
-	}
 }
 
 func serveRaw(resource *Resource) bool {
@@ -74,7 +87,7 @@ func serveRaw(resource *Resource) bool {
 	// display the first part of the raw file
 	resource.html = "<xmp>" + s + "</xmp>"
 	resource.htmlHash = util.MakeHash(resource.html)
-	addReader(resource)
+	// resource.reader = readseeker.New(resource.outputExt)
 
 	return true
 }
@@ -93,7 +106,7 @@ func serveInput(resource *Resource, rule ConversionRule) bool {
 	// replace placeholders
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.inputHash)
 	resource.htmlHash = util.MakeHash(resource.html)
-	addReader(resource)
+	// resource.reader = readseeker.New(resource.outputExt)
 
 	return true
 }
@@ -135,7 +148,7 @@ func serveCommand(resource *Resource, rule ConversionRule) bool {
 	// save output html
 	resource.html = html
 	resource.htmlHash = util.MakeHash(resource.html)
-	addReader(resource)
+	// resource.reader = readseeker.New(resource.outputExt)
 
 	return true
 }
