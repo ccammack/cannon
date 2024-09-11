@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	tempDir string
-	lock    sync.RWMutex
-	currRes *Resource
+	tempDir  string
+	lock     sync.RWMutex
+	resource *Resource
 )
 
 func init() {
@@ -34,7 +34,7 @@ func init() {
 		if event == "reload" {
 			lock.Lock()
 			defer lock.Unlock()
-			currRes = nil
+			resource = nil
 		}
 	})
 }
@@ -56,14 +56,14 @@ func FormatPageContent() map[string]template.HTML {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if currRes != nil && currRes.Ready {
+	if resource != nil && resource.Ready {
 		// serve the converted output file (or error text on failure)
 		maps.Copy(data, map[string]template.HTML{
-			"title":    template.HTML(filepath.Base(currRes.input)),
-			"html":     template.HTML(currRes.html),
-			"htmlhash": template.HTML(currRes.htmlHash),
+			"title":    template.HTML(filepath.Base(resource.file)),
+			"html":     template.HTML(resource.html),
+			"htmlhash": template.HTML(resource.htmlHash),
 		})
-	} else if currRes != nil {
+	} else if resource != nil {
 		// serve a spinner while waiting for the next resource
 		// https://codepen.io/nikhil8krishnan/pen/rVoXJa
 		maps.Copy(data, map[string]template.HTML{
@@ -103,10 +103,10 @@ func Update(w http.ResponseWriter, r *http.Request) {
 		// create a new resource
 		lock.Lock()
 		defer lock.Unlock()
-		if currRes != nil && currRes.reader != nil {
-			currRes.reader.Cancel()
+		if resource != nil {
+			resource.Close()
 		}
-		currRes = newResource(file, hash)
+		resource = newResource(file, hash)
 		body["status"] = template.HTML("success")
 	} else {
 		// this is reached sometimes after deleting a file with lf
@@ -127,15 +127,15 @@ func Close(w http.ResponseWriter, r *http.Request) {
 	}
 	lock.Lock()
 	defer lock.Unlock()
-	if currRes != nil && currRes.reader != nil {
-		currRes.reader.Cancel()
+	if resource != nil {
+		resource.Close()
 	}
-	currRes = nil
+	resource = nil
 	body := map[string]template.HTML{}
 	body["status"] = template.HTML("success")
 	util.RespondJson(w, body)
 }
 
 func File(w http.ResponseWriter, r *http.Request) {
-	http.ServeContent(w, r, filepath.Base(currRes.reader.Info.Name()), currRes.reader.Info.ModTime(), currRes.reader)
+	http.ServeContent(w, r, filepath.Base(resource.reader.Info.Name()), resource.reader.Info.ModTime(), resource.reader)
 }

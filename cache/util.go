@@ -44,8 +44,8 @@ func findMatchingOutputFile(output string) string {
 
 func runAndWait(resource *Resource, rule ConversionRule) int {
 	cmd, args := util.FormatCommand(rule.cmd, map[string]string{
-		"{input}":  resource.input,
-		"{output}": resource.output,
+		"{input}":  resource.file,
+		"{output}": resource.tmpOutputFile,
 	})
 
 	// timeout
