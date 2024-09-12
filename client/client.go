@@ -21,7 +21,9 @@ func startBrowser(url string) {
 		cmd, args := util.FormatCommand(command, map[string]string{"{url}": url})
 		proc := exec.Command(cmd, args...)
 		err := proc.Start()
-		util.CheckPanicOld(err)
+		if err != nil {
+			log.Printf("error starting browser: %v", err)
+		}
 	}
 }
 

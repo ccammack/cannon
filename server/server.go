@@ -59,7 +59,6 @@ func Start() {
 	// listen and serve
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", cache.HandleRoot)
-	// mux.HandleFunc("/status", cache.HandleStatus)
 	mux.HandleFunc("/file/", cache.HandleFile)
 	mux.HandleFunc("/update", cache.HandleUpdate)
 	mux.HandleFunc("/stop", handleStop)

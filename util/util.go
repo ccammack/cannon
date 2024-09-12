@@ -5,12 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,19 +16,7 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-var (
-	filename = "/home/ccammack/work/cannon/log.txt"
-)
-
-func Append(text string) {
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	CheckPanicOld(err)
-	defer f.Close()
-	_, err = f.WriteString(text + "\n")
-	CheckPanicOld(err)
-}
-
-func RespondJson(w http.ResponseWriter, data map[string]template.HTML) {
+func RespondJson(w http.ResponseWriter, data map[string]interface{}) {
 	// json
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -47,16 +32,6 @@ func Find(a []string, x string) int {
 		}
 	}
 	return len(a)
-}
-
-func DumpRequest(r *http.Request) {
-	// TODO: save this info in reference.org
-	res, error := httputil.DumpRequest(r, true)
-	if error != nil {
-		log.Fatal(error)
-	}
-	fmt.Print(string(res))
-	// Append(string(res))
 }
 
 func FormatCommand(commandArr []string, subs map[string]string) (string, []string) {
@@ -92,8 +67,8 @@ func Max[T constraints.Ordered](args ...T) T {
 	return max
 }
 
-// Filename is the __filename equivalent
 func Filename() (string, error) {
+	// Filename is the __filename equivalent
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
 		return "", errors.New("unable to get the current filename")
@@ -101,33 +76,13 @@ func Filename() (string, error) {
 	return filename, nil
 }
 
-// Dirname is the __dirname equivalent
 func Dirname() (string, error) {
+	// Dirname is the __dirname equivalent
 	filename, err := Filename()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Dir(filename), nil
-}
-
-func CopyFile(input string, output string) {
-	// copy input file contents to output file
-	data, err := os.ReadFile(input)
-	CheckPanicOld(err)
-	err = os.WriteFile(output, data, 0644)
-	CheckPanicOld(err)
-}
-
-func CheckPanicOld(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func CheckPanic(err error, message string) {
-	if err != nil {
-		log.Panicf("%s: %v", message, err)
-	}
 }
 
 func GetFileLength(file string) (int64, error) {
@@ -136,19 +91,6 @@ func GetFileLength(file string) (int64, error) {
 		return 0, err
 	}
 	return info.Size(), nil
-
-	// fp, err := os.Open(file)
-	// if err != nil {
-	// 	log.Printf("Error opening file: %v", err)
-	// 	return 0, err
-	// }
-	// defer fp.Close()
-	// fi, err := fp.Stat()
-	// if err != nil {
-	// 	log.Printf("Error getting file info: %v", err)
-	// 	return 0, err
-	// }
-	// return fi.Size(), nil
 }
 
 func GetFileBytes(file string, length int64) ([]byte, int64, error) {
@@ -175,12 +117,21 @@ func MakeHash(s string) string {
 func IsBinaryFile(file string) ([]byte, int, bool) {
 	// treat the file as binary if it contains a NUL in the first 4096 bytes
 	fp, err := os.Open(file)
-	CheckPanicOld(err)
+	if err != nil {
+		log.Printf("error opening file: %v", err)
+	}
+
 	fs, err := fp.Stat()
-	CheckPanicOld(err)
+	if err != nil {
+		log.Printf("error getting info: %v", err)
+	}
+
 	b := make([]byte, Min(4096, fs.Size()))
 	n, err := fp.Read(b)
-	CheckPanicOld(err)
+	if err != nil {
+		log.Printf("error reading file: %v", err)
+	}
+
 	for i := 0; i < n; i++ {
 		if b[i] == '\x00' {
 			return b, int(fs.Size()), true

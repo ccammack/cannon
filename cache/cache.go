@@ -12,7 +12,6 @@ import (
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/connections"
-
 	"github.com/ccammack/cannon/util"
 )
 
@@ -49,7 +48,7 @@ func Exit() {
 
 func Shutdown() {
 	// tell the client to shutdown
-	connections.Broadcast(map[string]template.HTML{
+	connections.Broadcast(map[string]interface{}{
 		"action": "shutdown",
 	})
 }
@@ -96,18 +95,9 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// func HandleStatus(w http.ResponseWriter, r *http.Request) {
-// 	// handle route /status
-// 	data := map[string]template.HTML{
-// 		"status": "success",
-// 	}
-// 	maps.Copy(data, FormatPageContent())
-// 	util.RespondJson(w, data)
-// }
-
 func HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	// select a new file to display
-	body := map[string]template.HTML{}
+	body := map[string]interface{}{}
 
 	// extract params from the request body
 	params := map[string]string{}
@@ -163,7 +153,7 @@ func HandleClose(w http.ResponseWriter, r *http.Request) {
 		resource.Close()
 	}
 	resource = nil
-	body := map[string]template.HTML{}
+	body := map[string]interface{}{}
 	body["status"] = template.HTML("success")
 	util.RespondJson(w, body)
 }
