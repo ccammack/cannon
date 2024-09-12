@@ -36,6 +36,14 @@ os.windows.browser: [ '{env.ProgramFiles}/Google/Chrome/Application/chrome.exe',
 mime:            [ file,                                                    -b, --mime-type, '{input}' ]
 os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, --mime-type, '{input}' ]
 
+# specify contents of <style> for display
+style: |
+  #container { width:100%;  }
+  img        { max-width: 100%; height:auto; max-height: 100%;  }
+  video      { max-width: 100%; height: auto; max-height: 100%;  }
+  iframe     { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+  object     { max-width: 100%; height: auto; max-height: 100%; }
+
 # deps: (optional) specify the command line applications required to perform file conversions
 #     the existence of each application will be validated on --start and the missing ones will be logged
 #     apps: specify a list of executable names or full paths

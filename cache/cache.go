@@ -14,7 +14,6 @@ import (
 	"github.com/ccammack/cannon/connections"
 
 	"github.com/ccammack/cannon/util"
-	"golang.org/x/exp/maps"
 )
 
 var (
@@ -55,33 +54,24 @@ func Shutdown() {
 	})
 }
 
-func FormatPageContent() map[string]template.HTML {
+func prepareTemplateVars() map[string]interface{} {
 	// set default values
-	data := map[string]template.HTML{}
+	_, style := config.Style().String()
+	data := map[string]interface{}{
+		"style": template.CSS(style),
+	}
 
 	lock.Lock()
 	defer lock.Unlock()
 
 	if resource != nil && resource.Ready {
 		// serve the converted output file (or error text on failure)
-		maps.Copy(data, map[string]template.HTML{
-			"title": template.HTML(filepath.Base(resource.file)),
-			"html":  template.HTML(resource.html),
-		})
-		// } else if resource != nil {
-		// 	// serve a spinner while waiting for the next resource
-		// 	// https://codepen.io/nikhil8krishnan/pen/rVoXJa
-		// 	maps.Copy(data, map[string]template.HTML{
-		// 		"title": template.HTML(filepath.Base("Loading...")),
-		// 		"html":  template.HTML(SpinnerTemplate),
-		// 	})
+		data["title"] = template.HTMLEscapeString(filepath.Base(resource.file))
+		data["html"] = template.HTML(resource.html)
 	} else {
 		// serve default values until the first resource is added
-		html := "<p>Waiting for file...</p>"
-		maps.Copy(data, map[string]template.HTML{
-			"title": "Cannon preview",
-			"html":  template.HTML(html),
-		})
+		data["title"] = template.HTMLEscapeString("Cannon preview")
+		data["html"] = template.HTML("<p>Waiting for file...</p>")
 	}
 
 	return data
@@ -90,29 +80,19 @@ func FormatPageContent() map[string]template.HTML {
 func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	// handle route /
 	if r.Header.Get("Upgrade") == "websocket" {
+		// handle socket connection requests
 		err := connections.New(w, r)
 		if err != nil {
 			http.Error(w, "WebSocket upgrade failed", http.StatusInternalServerError)
 		}
 	} else {
-		data := FormatPageContent()
-
-		// generate complete html page from template
-		t, err := template.New("page").Parse(PageTemplate)
-		util.CheckPanicOld(err)
-		err = t.Execute(w, data)
-		util.CheckPanicOld(err)
-
-		// accept := r.Header.Get("Accept")
-		// if accept == "" || strings.Contains(accept, "text/html") {
-		// 	// html
-		// 	err = t.Execute(w, data)
-		// 	util.CheckPanicOld(err)
-		// } else {
-		// 	// json
-		// 	data["page"] = template.HTML(t.Tree.Root.String())
-		// 	util.RespondJson(w, data)
-		// }
+		// handle normal page generation
+		templ := template.Must(template.New("page").Parse(PageTemplate))
+		vars := prepareTemplateVars()
+		err := templ.Execute(w, vars)
+		if err != nil {
+			log.Printf("error generating page: %v", err)
+		}
 	}
 }
 

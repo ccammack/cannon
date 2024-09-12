@@ -26,39 +26,8 @@ const PageTemplate = `
 		<title>
 			{{.title}}
 		</title>
-		<style>
-			div {
-				width:100%;
-			}
-			img {
-				max-width: 100%;
-				height:auto;
-				max-height: 100%;
-			}
-			video {
-				max-width: 100%;
-				height: auto;
-				max-height: 100%;
-			}
-			iframe {
-				position: absolute;
-				top: 0;
-				left: 0;
-				width: 100%;
-				height: 100%;
-				border: 0;
-			}
-			object {
-				max-width: 100%;
-				height: auto;
-				max-height: 100%;
-			}
-			#spinner {
-				width: 40px;
-				height: 40px;
-				margin: 20px;
-				display:inline-block;
-			}
+		<style type="text/css">
+			{{.style}}
 		</style>
 		<script>
 			window.onload = function(e) {

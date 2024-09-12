@@ -127,6 +127,7 @@ func Exit() gen.Pair    { return applyEnvPlaceholder("exit", true, config) }
 func Logfile() gen.Pair { return applyEnvPlaceholder("logfile", false, config) }
 func Mime() gen.Pair    { return applyEnvPlaceholders("mime", true, config) }
 func Browser() gen.Pair { return applyEnvPlaceholders("browser", false, config) }
+func Style() gen.Pair   { return applyEnvPlaceholder("style", false, config) }
 
 type FileConversionDep struct {
 	Apps gen.Pair
@@ -221,6 +222,7 @@ func postLoad() {
 	// check required fields
 	Port()
 	Timeout()
+	Style()
 }
 
 func Validate() {
