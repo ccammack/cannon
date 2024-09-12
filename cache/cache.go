@@ -49,6 +49,13 @@ func Exit() {
 	}
 }
 
+func Shutdown() {
+	// tell the client to shutdown
+	conn.Send(map[string]template.HTML{
+		"action": "shutdown",
+	})
+}
+
 func FormatPageContent() map[string]template.HTML {
 	// set default values
 	data := map[string]template.HTML{}

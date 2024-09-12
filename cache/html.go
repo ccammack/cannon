@@ -77,8 +77,20 @@ const PageTemplate = `
 				socket.onclose = function(event) {}
 				socket.onmessage = function(event) {
 					const data = JSON.parse(event.data)
-					console.log('Received:', data)
-					location.reload()
+					switch (data.action) {
+						case "reload":
+							sendMessage({ "action": "close" })
+							requestAnimationFrame(() => { location.reload() })
+							break
+						case "shutdown":
+							document.title = "Cannon preview";
+							const container = document.getElementById("container");
+							if (container) {
+								const inner = "<p>Disconnected from server: " + document.location.href + "</p>";
+								container.innerHTML = inner;
+							}
+							break
+					}
 				}
 			}
 		</script>

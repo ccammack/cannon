@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/pid"
-	"github.com/ccammack/cannon/util"
 )
 
 var (
@@ -74,9 +72,6 @@ func Start() {
 }
 
 func handleStop(w http.ResponseWriter, r *http.Request) {
-	// handle route /stop
-	util.RespondJson(w, map[string]template.HTML{
-		"status": "success",
-	})
+	cache.Shutdown()
 	shutdown()
 }

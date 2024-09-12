@@ -1,8 +1,8 @@
 package webcom
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -45,14 +45,28 @@ func (wc *WebCom) receive() {
 			break
 		}
 
-		fmt.Printf("Received: %s\n", msg)
+		var data map[string]interface{}
+		err = json.Unmarshal([]byte(msg), &data)
+		if err != nil {
+			log.Printf("error reading socket message: %v", err)
+		}
+
+		value, ok := data["action"]
+		if ok && value == "close" {
+			wc.Close()
+			break
+		}
 	}
 }
 
 func (wc *WebCom) Send(message interface{}) {
-	// Send message back to the client
+	// send message to the client
 	err := wc.conn.WriteJSON(message)
 	if err != nil {
 		log.Printf("error sending message: %v", err)
 	}
+}
+
+func (wc *WebCom) Close() {
+	wc.conn.Close()
 }
