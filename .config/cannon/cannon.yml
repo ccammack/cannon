@@ -12,9 +12,6 @@
 # specify server port
 port: 8888
 
-# specify browser polling time in milliseconds
-interval: 33
-
 # specify file conversion timeout in milliseconds
 #     if a file conversion takes too long, just display the raw file data instead
 timeout: 500

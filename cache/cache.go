@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/ccammack/cannon/config"
+	"github.com/ccammack/cannon/webcom"
+
 	"github.com/ccammack/cannon/util"
 	"golang.org/x/exp/maps"
 )
@@ -19,6 +21,7 @@ var (
 	tempDir  string
 	lock     sync.RWMutex
 	resource *Resource
+	conn     *webcom.WebCom
 )
 
 func init() {
@@ -48,10 +51,7 @@ func Exit() {
 
 func FormatPageContent() map[string]template.HTML {
 	// set default values
-	_, interval := config.Interval().String()
-	data := map[string]template.HTML{
-		"interval": template.HTML(interval),
-	}
+	data := map[string]template.HTML{}
 
 	lock.Lock()
 	defer lock.Unlock()
@@ -59,32 +59,68 @@ func FormatPageContent() map[string]template.HTML {
 	if resource != nil && resource.Ready {
 		// serve the converted output file (or error text on failure)
 		maps.Copy(data, map[string]template.HTML{
-			"title":    template.HTML(filepath.Base(resource.file)),
-			"html":     template.HTML(resource.html),
-			"htmlhash": template.HTML(resource.htmlHash),
+			"title": template.HTML(filepath.Base(resource.file)),
+			"html":  template.HTML(resource.html),
 		})
-	} else if resource != nil {
-		// serve a spinner while waiting for the next resource
-		// https://codepen.io/nikhil8krishnan/pen/rVoXJa
-		maps.Copy(data, map[string]template.HTML{
-			"title":    template.HTML(filepath.Base("Loading...")),
-			"html":     template.HTML(SpinnerTemplate),
-			"htmlhash": template.HTML(util.MakeHash(SpinnerTemplate)),
-		})
+		// } else if resource != nil {
+		// 	// serve a spinner while waiting for the next resource
+		// 	// https://codepen.io/nikhil8krishnan/pen/rVoXJa
+		// 	maps.Copy(data, map[string]template.HTML{
+		// 		"title": template.HTML(filepath.Base("Loading...")),
+		// 		"html":  template.HTML(SpinnerTemplate),
+		// 	})
 	} else {
 		// serve default values until the first resource is added
 		html := "<p>Waiting for file...</p>"
 		maps.Copy(data, map[string]template.HTML{
-			"title":    "Cannon preview",
-			"html":     template.HTML(html),
-			"htmlhash": template.HTML(util.MakeHash(html)),
+			"title": "Cannon preview",
+			"html":  template.HTML(html),
 		})
 	}
 
 	return data
 }
 
-func Update(w http.ResponseWriter, r *http.Request) {
+func HandleRoot(w http.ResponseWriter, r *http.Request) {
+	// handle route /
+	if r.Header.Get("Upgrade") == "websocket" {
+		wc, err := webcom.New(w, r)
+		if err != nil {
+			http.Error(w, "WebSocket upgrade failed", http.StatusInternalServerError)
+		}
+		conn = wc
+	} else {
+		data := FormatPageContent()
+
+		// generate complete html page from template
+		t, err := template.New("page").Parse(PageTemplate)
+		util.CheckPanicOld(err)
+		err = t.Execute(w, data)
+		util.CheckPanicOld(err)
+
+		// accept := r.Header.Get("Accept")
+		// if accept == "" || strings.Contains(accept, "text/html") {
+		// 	// html
+		// 	err = t.Execute(w, data)
+		// 	util.CheckPanicOld(err)
+		// } else {
+		// 	// json
+		// 	data["page"] = template.HTML(t.Tree.Root.String())
+		// 	util.RespondJson(w, data)
+		// }
+	}
+}
+
+// func HandleStatus(w http.ResponseWriter, r *http.Request) {
+// 	// handle route /status
+// 	data := map[string]template.HTML{
+// 		"status": "success",
+// 	}
+// 	maps.Copy(data, FormatPageContent())
+// 	util.RespondJson(w, data)
+// }
+
+func HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	// select a new file to display
 	body := map[string]template.HTML{}
 
@@ -106,7 +142,18 @@ func Update(w http.ResponseWriter, r *http.Request) {
 		if resource != nil {
 			resource.Close()
 		}
-		resource = newResource(file, hash)
+
+		// create a resource and call back when finished
+		resource = newResource(file, hash, func(res *Resource) {
+			// if the new resource is still selected resource
+			if res == resource {
+				// tell the client to reload the page
+				conn.Send(map[string]template.HTML{
+					"action": "reload",
+				})
+			}
+		})
+
 		body["status"] = template.HTML("success")
 	} else {
 		// this is reached sometimes after deleting a file with lf
@@ -118,7 +165,7 @@ func Update(w http.ResponseWriter, r *http.Request) {
 	util.RespondJson(w, body)
 }
 
-func Close(w http.ResponseWriter, r *http.Request) {
+func HandleClose(w http.ResponseWriter, r *http.Request) {
 	// extract params from the request body
 	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
@@ -136,6 +183,6 @@ func Close(w http.ResponseWriter, r *http.Request) {
 	util.RespondJson(w, body)
 }
 
-func File(w http.ResponseWriter, r *http.Request) {
+func HandleFile(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, filepath.Base(resource.reader.Info.Name()), resource.reader.Info.ModTime(), resource.reader)
 }

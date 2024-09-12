@@ -23,7 +23,7 @@ type Resource struct {
 	Ready         bool
 }
 
-func newResource(file string, hash string) *Resource {
+func newResource(file string, hash string, ready func(res *Resource)) *Resource {
 	resource := &Resource{
 		file:          file,
 		hash:          hash,
@@ -52,6 +52,7 @@ func newResource(file string, hash string) *Resource {
 
 		// work complete
 		resource.Ready = true
+		ready(resource)
 	}()
 
 	return resource

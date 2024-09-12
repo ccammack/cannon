@@ -61,51 +61,25 @@ const PageTemplate = `
 			}
 		</style>
 		<script>
-			let htmlhash = "{{.htmlhash}}";
 			window.onload = function(e) {
-				// replace placeholder media address with document.location.href
-				const container = document.getElementById("container");
+				// replace placeholder addresses with document.location.href
+				const container = document.getElementById("container")
 				if (container) {
-					const inner = container.innerHTML.replace("{document.location.href}", document.location.href);
-					container.innerHTML = inner;
+					const inner = container.innerHTML.replaceAll("{document.location.href}", document.location.href)
+					container.innerHTML = inner
 				}
 
-				// poll server /status using address from document.location.href
-				const statusurl = document.location.href + "status";
-				setTimeout(function status() {
-					// ask the server for updates and reload if needed
-					fetch(statusurl)
-					.then((response) => response.json())
-					.then((data) => {
-						if (htmlhash != data.htmlhash) {
-							if (data.html.includes("<video") || data.html.includes("<audio")) {
-								// to ensure proper cleanup, reload the page if the incoming element is a video or audio
-								location.reload()
-							} else {
-								// otherwise, just replace the content for faster response
-								htmlhash = data.htmlhash
-								document.title = data.title
-
-								// replace placeholder media address with document.location.href
-								const container = document.getElementById("container");
-								if (container) {
-									const inner = data.html.replace("{document.location.href}", document.location.href);
-									container.innerHTML = inner;
-								}
-							}
-						}
-						setTimeout(status, {{.interval}});
-					})
-					.catch(err => {
-						// Failed to load resource: net::ERR_CONNECTION_REFUSED
-						document.title = "Cannon preview";
-						const container = document.getElementById("container");
-						if (container) {
-							const inner = "<p>Disconnected from server: " + statusurl + "</p>";
-							container.innerHTML = inner;
-						}
-					});
-				}, {{.interval}});
+				// open websocket
+				const socket = new WebSocket((document.location.href).replace(/^https?:/, "ws:"))
+				const sendMessage = function(obj) { socket.send(JSON.stringify(obj)) }
+				socket.onopen = function(e) {}
+				socket.onerror = function(error) {}
+				socket.onclose = function(event) {}
+				socket.onmessage = function(event) {
+					const data = JSON.parse(event.data)
+					console.log('Received:', data)
+					location.reload()
+				}
 			}
 		</script>
 	</head>

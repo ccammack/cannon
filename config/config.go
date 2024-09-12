@@ -121,13 +121,12 @@ func applyEnvPlaceholders(key string, required bool, ko *koanf.Koanf) gen.Pair {
 	return gen.Pair{K: k, V: output}
 }
 
-func Port() gen.Pair     { return applyEnvPlaceholder("port", true, config) }
-func Interval() gen.Pair { return applyEnvPlaceholder("interval", true, config) }
-func Timeout() gen.Pair  { return applyEnvPlaceholder("timeout", true, config) }
-func Exit() gen.Pair     { return applyEnvPlaceholder("exit", true, config) }
-func Logfile() gen.Pair  { return applyEnvPlaceholder("logfile", false, config) }
-func Mime() gen.Pair     { return applyEnvPlaceholders("mime", true, config) }
-func Browser() gen.Pair  { return applyEnvPlaceholders("browser", false, config) }
+func Port() gen.Pair    { return applyEnvPlaceholder("port", true, config) }
+func Timeout() gen.Pair { return applyEnvPlaceholder("timeout", true, config) }
+func Exit() gen.Pair    { return applyEnvPlaceholder("exit", true, config) }
+func Logfile() gen.Pair { return applyEnvPlaceholder("logfile", false, config) }
+func Mime() gen.Pair    { return applyEnvPlaceholders("mime", true, config) }
+func Browser() gen.Pair { return applyEnvPlaceholders("browser", false, config) }
 
 type FileConversionDep struct {
 	Apps gen.Pair
@@ -221,7 +220,6 @@ func postLoad() {
 
 	// check required fields
 	Port()
-	Interval()
 	Timeout()
 }
 

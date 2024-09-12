@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"maps"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/ccammack/cannon/cache"
@@ -62,12 +60,12 @@ func Start() {
 
 	// listen and serve
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", pageHandler)
-	mux.HandleFunc("/status", statusHandler)
-	mux.HandleFunc("/file/", fileHandler)
-	mux.HandleFunc("/update", updateHandler)
-	mux.HandleFunc("/stop", stopHandler)
-	mux.HandleFunc("/close", closeHandler)
+	mux.HandleFunc("/", cache.HandleRoot)
+	// mux.HandleFunc("/status", cache.HandleStatus)
+	mux.HandleFunc("/file/", cache.HandleFile)
+	mux.HandleFunc("/update", cache.HandleUpdate)
+	mux.HandleFunc("/stop", handleStop)
+	mux.HandleFunc("/close", cache.HandleClose)
 	server = &http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
 		Handler: mux,
@@ -75,54 +73,10 @@ func Start() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func pageHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /status
-	data := cache.FormatPageContent()
-
-	// generate complete html page from template
-	t, err := template.New("page").Parse(cache.PageTemplate)
-	util.CheckPanicOld(err)
-
-	accept := r.Header.Get("Accept")
-	if accept == "" || strings.Contains(accept, "text/html") {
-		// html
-		err = t.Execute(w, data)
-		util.CheckPanicOld(err)
-	} else {
-		// json
-		data["page"] = template.HTML(t.Tree.Root.String())
-		util.RespondJson(w, data)
-	}
-}
-
-func statusHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /status
-	data := map[string]template.HTML{
-		"status": "success",
-	}
-	maps.Copy(data, cache.FormatPageContent())
-	util.RespondJson(w, data)
-}
-
-func fileHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /<hash>
-	cache.File(w, r)
-}
-
-func updateHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /update
-	cache.Update(w, r)
-}
-
-func stopHandler(w http.ResponseWriter, r *http.Request) {
+func handleStop(w http.ResponseWriter, r *http.Request) {
 	// handle route /stop
 	util.RespondJson(w, map[string]template.HTML{
 		"status": "success",
 	})
 	shutdown()
-}
-
-func closeHandler(w http.ResponseWriter, r *http.Request) {
-	// handle route /close
-	cache.Close(w, r)
 }
