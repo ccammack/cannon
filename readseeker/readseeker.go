@@ -104,14 +104,5 @@ func (rs *ReadSeeker) Cancel() {
 	}
 }
 
-// func (rs *ReadSeeker) Timeout(t int) *ReadSeeker {
-// 	go func() {
-// 		time.Sleep(time.Duration(t) * time.Second)
-// 		log.Println("timeout")
-// 		rs.Cancel()
-// 	}()
-// 	return rs
-// }
-
 // verify that this implements io.ReadSeeker's interface
 var _ io.ReadSeeker = (*ReadSeeker)(nil)
