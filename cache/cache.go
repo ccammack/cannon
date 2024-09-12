@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/ccammack/cannon/config"
-	"github.com/ccammack/cannon/webcom"
+	"github.com/ccammack/cannon/connections"
 
 	"github.com/ccammack/cannon/util"
 	"golang.org/x/exp/maps"
@@ -21,7 +21,6 @@ var (
 	tempDir  string
 	lock     sync.RWMutex
 	resource *Resource
-	conn     *webcom.WebCom
 )
 
 func init() {
@@ -51,7 +50,7 @@ func Exit() {
 
 func Shutdown() {
 	// tell the client to shutdown
-	conn.Send(map[string]template.HTML{
+	connections.Broadcast(map[string]template.HTML{
 		"action": "shutdown",
 	})
 }
@@ -91,11 +90,10 @@ func FormatPageContent() map[string]template.HTML {
 func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	// handle route /
 	if r.Header.Get("Upgrade") == "websocket" {
-		wc, err := webcom.New(w, r)
+		err := connections.New(w, r)
 		if err != nil {
 			http.Error(w, "WebSocket upgrade failed", http.StatusInternalServerError)
 		}
-		conn = wc
 	} else {
 		data := FormatPageContent()
 
@@ -155,7 +153,7 @@ func HandleUpdate(w http.ResponseWriter, r *http.Request) {
 			// if the new resource is still selected resource
 			if res == resource {
 				// tell the client to reload the page
-				conn.Send(map[string]template.HTML{
+				connections.Broadcast(map[string]template.HTML{
 					"action": "reload",
 				})
 			}
