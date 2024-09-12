@@ -95,24 +95,24 @@ in a web browser using a static HTTP server.`,
 					return nil
 				},
 			},
-			&cli.BoolFlag{
-				Name:    "page",
-				Aliases: []string{"g"},
-				Usage:   "Display the current page HTML for testing",
-				Action: func(ctx *cli.Context, v bool) error {
-					client.Request("GET", "page", nil)
-					return nil
-				},
-			},
-			&cli.BoolFlag{
-				Name:    "status",
-				Aliases: []string{"u"},
-				Usage:   "Display the server status for testing",
-				Action: func(ctx *cli.Context, v bool) error {
-					client.Request("GET", "status", nil)
-					return nil
-				},
-			},
+			// &cli.BoolFlag{
+			// 	Name:    "page",
+			// 	Aliases: []string{"g"},
+			// 	Usage:   "Display the current page HTML for testing",
+			// 	Action: func(ctx *cli.Context, v bool) error {
+			// 		client.Request("GET", "page", nil)
+			// 		return nil
+			// 	},
+			// },
+			// &cli.BoolFlag{
+			// 	Name:    "status",
+			// 	Aliases: []string{"u"},
+			// 	Usage:   "Display the server status for testing",
+			// 	Action: func(ctx *cli.Context, v bool) error {
+			// 		client.Request("GET", "status", nil)
+			// 		return nil
+			// 	},
+			// },
 		},
 
 		Action: func(cCtx *cli.Context) error {
