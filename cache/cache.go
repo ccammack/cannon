@@ -6,61 +6,21 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/connections"
 	"github.com/ccammack/cannon/util"
 )
 
-var (
-	tempDir  string
-	lock     sync.RWMutex
-	resource *Resource
-	cache    map[string]*Resource = make(map[string]*Resource)
-)
-
-func init() {
-	// create a temp directory on init
-	dir, err := os.MkdirTemp("", "cannon")
-	if err != nil {
-		log.Panicf("error creating temp dir: %v", err)
-	}
-	tempDir = dir
-
-	// react to config file changes
-	config.RegisterCallback(func(event string) {
-		if event == "reload" {
-			closeResources()
-			cache = make(map[string]*Resource)
-		}
-	})
-}
-
-func closeResources() {
-	lock.Lock()
-	defer lock.Unlock()
-	resource = nil
-	for _, res := range cache {
-		res.Close()
-	}
-}
-
 func Shutdown() {
-	// tell the client to shutdown
+	// tell the client to disconnect
 	connections.Broadcast(map[string]interface{}{
 		"action": "shutdown",
 	})
 
 	// close all resources
-	closeResources()
-
-	// clean up temp files
-	if len(tempDir) > 0 {
-		os.RemoveAll(tempDir)
-	}
+	closeAll()
 }
 
 func prepareTemplateVars() map[string]interface{} {
@@ -70,13 +30,11 @@ func prepareTemplateVars() map[string]interface{} {
 		"style": template.CSS(style),
 	}
 
-	lock.Lock()
-	defer lock.Unlock()
-
-	if resource != nil && resource.Ready {
+	res, ok := currResource()
+	if ok {
 		// serve the converted output file (or error text on failure)
-		data["title"] = template.HTMLEscapeString(filepath.Base(resource.file))
-		data["html"] = template.HTML(resource.html)
+		data["title"] = template.HTMLEscapeString(filepath.Base(res.file))
+		data["html"] = template.HTML(res.html)
 	} else {
 		// serve default values until the first resource is added
 		data["title"] = template.HTMLEscapeString("Cannon preview")
@@ -122,27 +80,19 @@ func HandleDisplay(w http.ResponseWriter, r *http.Request) {
 
 	if file != "" && hash != "" {
 		// create a new resource
-		lock.Lock()
-		defer lock.Unlock()
+		ch := make(chan *Resource)
+		setCurrentResource(file, hash, ch)
 
-		// check cache for existing resource
-		res, ok := cache[hash]
-		if ok {
-			// resource already exists
-			resource = res
-			if resource.Ready {
+		go func() {
+			// wait for the resource to be become ready
+			ready := <-ch
+			curr, ok := currResource()
+			if ok && curr == ready {
+				// request a reload if the current resource is the one that just became ready
 				connections.Broadcast(map[string]template.HTML{"action": "reload"})
+			} else {
 			}
-		} else {
-			// create a resource and call back when finished
-			resource = newResource(file, hash, func(res *Resource) {
-				// reload if the if the new resource is currently selected
-				if res == resource {
-					connections.Broadcast(map[string]template.HTML{"action": "reload"})
-				}
-			})
-			cache[hash] = resource
-		}
+		}()
 
 		body["status"] = template.HTML("success")
 	} else {
@@ -169,18 +119,8 @@ func HandleClose(w http.ResponseWriter, r *http.Request) {
 	hash := params["hash"]
 
 	if hash != "" {
-		lock.Lock()
-		defer lock.Unlock()
-
-		// find and close the resource
-		res, ok := cache[hash]
-		if ok {
-			res.Close()
-			delete(cache, hash)
-			if resource == res {
-				resource = nil
-			}
-		}
+		// close the resource
+		close(hash)
 
 		body["status"] = template.HTML("success")
 	} else {
@@ -193,8 +133,9 @@ func HandleClose(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleFile(w http.ResponseWriter, r *http.Request) {
-	if resource != nil && resource.reader != nil {
-		http.ServeContent(w, r, filepath.Base(resource.reader.Info.Name()), resource.reader.Info.ModTime(), resource.reader)
+	reader, ok := currReader()
+	if ok {
+		http.ServeContent(w, r, filepath.Base(reader.Info.Name()), reader.Info.ModTime(), reader)
 	} else {
 		http.Error(w, "http.StatusServiceUnavailable", http.StatusServiceUnavailable)
 	}

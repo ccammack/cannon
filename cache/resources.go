@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/readseeker"
@@ -20,48 +21,132 @@ type Resource struct {
 	stdout        string // {stdout}
 	stderr        string // {stderr}
 	reader        *readseeker.ReadSeeker
-	Ready         bool
+	ready         bool
 }
 
-func newResource(file string, hash string, ready func(res *Resource)) *Resource {
-	resource := &Resource{
-		file:          file,
-		hash:          hash,
-		tmpOutputFile: createPreviewFile(tempDir),
-		serveFileExt:  file,
-		reader:        nil,
-	}
+var resourceManager = struct {
+	lock    sync.RWMutex
+	tempDir string
+	cache   map[string]*Resource
+	current *Resource
+}{cache: make(map[string]*Resource)}
 
-	go func() {
-		// find the first matching configuration rule
-		_, rules := matchConversionRules(resource.file)
-		if len(rules) == 0 {
-			// no matching rule found
-			resource.serveRaw()
-		} else {
-			// apply the first matching rule
-			rule := rules[0]
-			if !resource.serveInput(rule) && !resource.serveCommand(rule) && !resource.serveRaw() {
-				log.Printf("Error serving resource: %v", resource)
-			}
+func init() {
+	resourceManager.lock.Lock()
+	defer resourceManager.lock.Unlock()
+
+	// create a temp directory on init
+	dir, err := os.MkdirTemp("", "cannon")
+	if err != nil {
+		log.Panicf("error creating temp dir: %v", err)
+	}
+	resourceManager.tempDir = dir
+
+	// react to config file changes
+	config.RegisterCallback(func(event string) {
+		if event == "reload" {
+			closeAll()
 		}
-
-		// give it a reader; some converted files will fail because they are still open
-		// TODO: figure out how to wait for the output file to be closed before creating the readseeker
-		resource.reader = readseeker.New(resource.serveFileExt)
-
-		// work complete
-		resource.Ready = true
-		ready(resource)
-	}()
-
-	return resource
+	})
 }
 
-func (resource *Resource) Close() {
-	if resource.reader != nil {
-		resource.reader.Cancel()
+func setCurrentResource(file string, hash string, ch chan *Resource) {
+	resourceManager.lock.Lock()
+	defer resourceManager.lock.Unlock()
+
+	res, ok := resourceManager.cache[hash]
+	if ok {
+		resourceManager.current = res
+		go func() {
+			ch <- res
+		}()
+	} else {
+		res := &Resource{
+			file:          file,
+			hash:          hash,
+			tmpOutputFile: createPreviewFile(resourceManager.tempDir),
+			serveFileExt:  file,
+		}
+		resourceManager.cache[hash] = res
+		resourceManager.current = res
+
+		go func() {
+			// find the first matching configuration rule
+			_, rules := matchConversionRules(res.file)
+			if len(rules) == 0 {
+				// no matching rule found
+				res.serveRaw()
+			} else {
+				// apply the first matching rule
+				rule := rules[0]
+				if !res.serveInput(rule) && !res.serveCommand(rule) && !res.serveRaw() {
+					log.Printf("Error serving resource: %v", res)
+				}
+			}
+
+			// give it a reader; some converted files will fail because they are still open
+			// TODO: figure out how to wait for the output file to be closed before creating the readseeker
+			res.reader = readseeker.New(res.serveFileExt)
+
+			// work complete
+			res.ready = true
+			ch <- res
+		}()
 	}
+}
+
+func close(hash string) {
+	resourceManager.lock.Lock()
+	defer resourceManager.lock.Unlock()
+	res, ok := resourceManager.cache[hash]
+	if ok {
+		// close the cached resource
+		if res.reader != nil {
+			res.reader.Cancel()
+		}
+		delete(resourceManager.cache, hash)
+	}
+
+	// also nil the current resource if it matches
+	res = resourceManager.current
+	if res != nil && res.hash == hash {
+		resourceManager.current = nil
+	}
+}
+
+func closeAll() {
+	for hash := range resourceManager.cache {
+		close(hash)
+	}
+
+	if len(resourceManager.cache) != 0 {
+		log.Println("error in resources.closeAll()")
+	}
+
+	// delete temp files
+	if len(resourceManager.tempDir) > 0 {
+		os.RemoveAll(resourceManager.tempDir)
+	}
+}
+
+func currResource() (*Resource, bool) {
+	// return the current resource if it exists and is ready for display
+	resourceManager.lock.Lock()
+	defer resourceManager.lock.Unlock()
+	res := resourceManager.current
+	if res != nil && res.ready {
+		return res, true
+	}
+	return nil, false
+}
+
+func currReader() (*readseeker.ReadSeeker, bool) {
+	// return the current reader if it exists and is ready for reading
+	res, ok := currResource()
+	if ok && res.reader != nil {
+		return res.reader, true
+	}
+	return nil, false
 }
 
 func (resource *Resource) serveRaw() bool {
