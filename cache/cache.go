@@ -19,6 +19,7 @@ var (
 	tempDir  string
 	lock     sync.RWMutex
 	resource *Resource
+	cache    map[string]*Resource = make(map[string]*Resource)
 )
 
 func init() {
@@ -32,17 +33,18 @@ func init() {
 	// react to config file changes
 	config.RegisterCallback(func(event string) {
 		if event == "reload" {
-			lock.Lock()
-			defer lock.Unlock()
-			resource = nil
+			closeResources()
+			cache = make(map[string]*Resource)
 		}
 	})
 }
 
-func Exit() {
-	// clean up temp files
-	if len(tempDir) > 0 {
-		os.RemoveAll(tempDir)
+func closeResources() {
+	lock.Lock()
+	defer lock.Unlock()
+	resource = nil
+	for _, res := range cache {
+		res.Close()
 	}
 }
 
@@ -51,6 +53,14 @@ func Shutdown() {
 	connections.Broadcast(map[string]interface{}{
 		"action": "shutdown",
 	})
+
+	// close all resources
+	closeResources()
+
+	// clean up temp files
+	if len(tempDir) > 0 {
+		os.RemoveAll(tempDir)
+	}
 }
 
 func prepareTemplateVars() map[string]interface{} {
@@ -114,20 +124,23 @@ func HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		// create a new resource
 		lock.Lock()
 		defer lock.Unlock()
-		if resource != nil {
-			resource.Close()
-		}
 
-		// create a resource and call back when finished
-		resource = newResource(file, hash, func(res *Resource) {
-			// if the new resource is still selected resource
-			if res == resource {
-				// tell the client to reload the page
-				connections.Broadcast(map[string]template.HTML{
-					"action": "reload",
-				})
-			}
-		})
+		// check cache for existing resource
+		res, ok := cache[hash]
+		if ok {
+			// resource already exists
+			resource = res
+			connections.Broadcast(map[string]template.HTML{"action": "reload"})
+		} else {
+			// create a resource and call back when finished
+			resource = newResource(file, hash, func(res *Resource) {
+				// reload if the if the new resource is currently selected
+				if res == resource {
+					connections.Broadcast(map[string]template.HTML{"action": "reload"})
+				}
+			})
+			cache[hash] = resource
+		}
 
 		body["status"] = template.HTML("success")
 	} else {
@@ -141,20 +154,39 @@ func HandleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleClose(w http.ResponseWriter, r *http.Request) {
+	// close the specified resource
+	body := map[string]interface{}{}
+
 	// extract params from the request body
 	params := map[string]string{}
 	err := json.NewDecoder(r.Body).Decode(&params)
 	if err != nil {
 		log.Panicf("error decoding json payload: %v", err)
 	}
-	lock.Lock()
-	defer lock.Unlock()
-	if resource != nil {
-		resource.Close()
+
+	hash := params["hash"]
+
+	if hash != "" {
+		lock.Lock()
+		defer lock.Unlock()
+
+		// find and close the resource
+		res, ok := cache[hash]
+		if ok {
+			res.Close()
+			delete(cache, hash)
+			if resource == res {
+				resource = nil
+			}
+		}
+
+		body["status"] = template.HTML("success")
+	} else {
+		// not sure if this ever happens
+		body["status"] = template.HTML("error")
+		body["message"] = template.HTML(fmt.Sprintf("Error reading hash: %s", hash))
 	}
-	resource = nil
-	body := map[string]interface{}{}
-	body["status"] = template.HTML("success")
+
 	util.RespondJson(w, body)
 }
 
