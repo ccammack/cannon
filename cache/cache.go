@@ -193,5 +193,9 @@ func HandleClose(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleFile(w http.ResponseWriter, r *http.Request) {
-	http.ServeContent(w, r, filepath.Base(resource.reader.Info.Name()), resource.reader.Info.ModTime(), resource.reader)
+	if resource != nil && resource.reader != nil {
+		http.ServeContent(w, r, filepath.Base(resource.reader.Info.Name()), resource.reader.Info.ModTime(), resource.reader)
+	} else {
+		http.Error(w, "http.StatusServiceUnavailable", http.StatusServiceUnavailable)
+	}
 }
