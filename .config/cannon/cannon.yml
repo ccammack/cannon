@@ -103,11 +103,6 @@ rules:
     html: <audio autoplay loop controls src='{url}'>
 
   - ################################################################
-    # native text extensions
-    ext:  [ html, htm ]
-    html: <iframe src='{url}'>
-
-  - ################################################################
     # non-native image types
     mime: [ image ]
 
