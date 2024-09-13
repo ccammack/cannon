@@ -11,7 +11,7 @@ It follows rules defined in its configuration to sample and convert each selecte
 Installing Cannon requires a recent version of [Go](https://go.dev/):
 
 ```
-go install -v github.com/ccammack/cannon@66770db8d01f31b8c402f715c3ddc86f579fed85
+go install -v github.com/ccammack/cannon@e8d010d260891aba168c7ce6818b06f4a122e9cb
 ```
 
 After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate location:
