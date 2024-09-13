@@ -130,7 +130,9 @@ func HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		if ok {
 			// resource already exists
 			resource = res
-			connections.Broadcast(map[string]template.HTML{"action": "reload"})
+			if resource.Ready {
+				connections.Broadcast(map[string]template.HTML{"action": "reload"})
+			}
 		} else {
 			// create a resource and call back when finished
 			resource = newResource(file, hash, func(res *Resource) {
