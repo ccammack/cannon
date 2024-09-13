@@ -62,7 +62,7 @@ func Start() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", cache.HandleRoot)
 	mux.HandleFunc("/file/", cache.HandleFile)
-	mux.HandleFunc("/update", cache.HandleUpdate)
+	mux.HandleFunc("/display", cache.HandleDisplay)
 	mux.HandleFunc("/stop", handleStop)
 	mux.HandleFunc("/close", cache.HandleClose)
 	server = &http.Server{

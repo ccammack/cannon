@@ -95,24 +95,6 @@ in a web browser using a static HTTP server.`,
 					return nil
 				},
 			},
-			// &cli.BoolFlag{
-			// 	Name:    "page",
-			// 	Aliases: []string{"g"},
-			// 	Usage:   "Display the current page HTML for testing",
-			// 	Action: func(ctx *cli.Context, v bool) error {
-			// 		client.Request("GET", "page", nil)
-			// 		return nil
-			// 	},
-			// },
-			// &cli.BoolFlag{
-			// 	Name:    "status",
-			// 	Aliases: []string{"u"},
-			// 	Usage:   "Display the server status for testing",
-			// 	Action: func(ctx *cli.Context, v bool) error {
-			// 		client.Request("GET", "status", nil)
-			// 		return nil
-			// 	},
-			// },
 		},
 
 		Action: func(cCtx *cli.Context) error {
@@ -120,6 +102,7 @@ in a web browser using a static HTTP server.`,
 				return nil
 			}
 
+			// display the specified file
 			v := cCtx.Args().Get(0)
 			var hash, file string
 			var err error
@@ -130,7 +113,7 @@ in a web browser using a static HTTP server.`,
 				"file": file,
 				"hash": hash,
 			}
-			client.Request("POST", "update", params)
+			client.Request("POST", "display", params)
 
 			// lf requires a non-zero return value to disable caching
 			_, exit := config.Exit().Int()

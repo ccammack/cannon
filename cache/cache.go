@@ -105,7 +105,7 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleUpdate(w http.ResponseWriter, r *http.Request) {
+func HandleDisplay(w http.ResponseWriter, r *http.Request) {
 	// select a new file to display
 	body := map[string]interface{}{}
 
