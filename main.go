@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/ccammack/cannon/cache"
@@ -102,27 +104,53 @@ in a web browser using a static HTTP server.`,
 				return nil
 			}
 
-			// display the specified file
 			v := cCtx.Args().Get(0)
-			var hash, file string
-			var err error
-			if hash, file, err = util.HashPath(v); err != nil {
-				log.Printf("Error generating file hash: %v", err)
-			}
-			params := map[string]string{
-				"file": file,
-				"hash": hash,
-			}
-			client.Request("POST", "display", params)
+
+			// display contents
+			go displayContents(v)
+
+			// display metadata
+			displayMetadata(v)
 
 			// lf requires a non-zero return value to disable caching
 			_, exit := config.Exit().Int()
-			mimetype := cache.GetMimeType(file)
-			return cli.Exit(mimetype, exit)
+			return cli.Exit("", exit)
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func displayMetadata(v string) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var mime, meta string
+	go func() {
+		defer wg.Done()
+		mime = cache.GetMimeType(v)
+	}()
+	go func() {
+		defer wg.Done()
+		meta, _ = util.GetMetadataDisplayString(v)
+	}()
+	wg.Wait()
+	fmt.Println(mime)
+	fmt.Println(meta)
+}
+
+func displayContents(v string) {
+	// display the specified file
+	var hash, file string
+	var err error
+	if hash, file, err = util.HashPath(v); err != nil {
+		log.Printf("Error generating file hash: %v", err)
+	}
+	params := map[string]string{
+		"file": file,
+		"hash": hash,
+	}
+	client.Request("POST", "display", params)
+
 }

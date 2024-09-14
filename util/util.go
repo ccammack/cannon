@@ -188,3 +188,44 @@ func CopyFileContentsAsync(src, dst string) chan error {
 	}()
 	return ch
 }
+
+func CreateTempDir(name string) string {
+	// create a temp directory on init
+	dir, err := os.MkdirTemp("", name)
+	if err != nil {
+		log.Panicf("error creating temp dir: %v", err)
+	}
+	return dir
+}
+
+func GetMetadataDisplayString(file string) (string, error) {
+	// https://stackoverflow.com/a/25680293
+
+	type FileInfo struct {
+		os.FileInfo
+	}
+
+	marshalJSONIndent := func(f FileInfo) ([]byte, error) {
+		return json.MarshalIndent(map[string]interface{}{
+			"Name":    f.Name(),
+			"Size":    f.Size(),
+			"Mode":    f.Mode(),
+			"ModTime": f.ModTime(),
+			"IsDir":   f.IsDir(),
+		}, "", " ")
+	}
+
+	info, err := os.Stat(file)
+	if err != nil {
+		log.Printf("Error reading file info: %v", err)
+		return "", err
+	}
+
+	bytes, err := marshalJSONIndent(FileInfo{info})
+	if err != nil {
+		log.Printf("Error marshalling file info: %v", err)
+		return "", err
+	}
+
+	return string(bytes), nil
+}

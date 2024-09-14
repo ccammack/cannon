@@ -33,19 +33,15 @@ var resourceManager = struct {
 func init() {
 	resourceManager.lock.Lock()
 	defer resourceManager.lock.Unlock()
-
-	// create a temp directory on init
-	dir, err := os.MkdirTemp("", "cannon")
-	if err != nil {
-		log.Panicf("error creating temp dir: %v", err)
-	}
-	resourceManager.tempDir = dir
+	resourceManager.tempDir = util.CreateTempDir("cannon")
 
 	// react to config file changes
 	config.RegisterCallback(func(event string) {
 		if event == "reload" {
 			closeAll()
 		}
+
+		resourceManager.tempDir = util.CreateTempDir("cannon")
 	})
 }
 
