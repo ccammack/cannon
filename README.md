@@ -124,6 +124,10 @@ Start `lf` as usual and then press `T` to start the server and open the preview 
 Cannon will stream native audio and video files to the browser when selected, but this locks the file and prevents `lf` from deleting or moving it elsewhere. Use `cannon --quiet --close` to close a file and allow delete and move operations to proceed. For example, this Powershell *move* script closes each selected file before attempting to move it in case the file is currently streaming:
 
 ```PS1
+# create the output directory $args[0]
+$dest = $args[0]
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
 # move all of the files listed in $env:fx into the output directory
 $lines = [String[]]$env:fx
 $lines = $lines.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) 
@@ -138,7 +142,7 @@ foreach ($line in $lines) {
 	$line = "\\?\" + $line
 
 	# move the file
-	Move-Item -LiteralPath $line -Destination $dest
+	Move-Item -LiteralPath $line -Destination $dest -Force
 }
 ```
 
