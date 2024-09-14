@@ -78,14 +78,17 @@ deps:
 #     each entry in the rule set uses the keys described below
 #     keys can be overloaded using os.<$GOOS>.key and host.<name>.key to handle special cases
 #
-#     ext|mime: specify patterns to match either the file extension or mime type
-#          cmd: specify the file conversion command to run when a matching input file is found
-#               specify '{input}' and '{output}' placeholders in the right positions so cannon can insert the filenames
-#               the output param may specify an extension: '{output}.jpg'
-#         html: specify the html fragment to display the output in the browser
-#               the html fragment supports several placeholders
-#               use '{url}' for elements that use src= references
-#               use '{stdout}|{stderr}|{content}' to insert the results of the file conversion directly
+#      ext: specify extension patterns to match this rule
+#     mime: specify mime type patterns to match this rule
+#      cmd: specify the file conversion command to run when a matching rule is found
+#           specify '{input}' and '{output}' placeholders in the right positions so cannon can insert the filenames
+#           the output placeholder may specify an extension: '{output}.jpg'
+#      src: specify the file pattern to be served from the html src='{url}' attribute
+#           if not specified, cannon will guess the file to serve using the '{output}' placeholder
+#      html: specify the html fragment to display the output in the browser
+#            the html fragment supports several placeholders
+#            use '{url}' for elements that use src= references (serve the file specified by the *src: key)
+#            use '{stdout}|{stderr}|{content}' to insert the results of the file conversion directly
 rules:
   - ################################################################
     # native image extensions
@@ -110,6 +113,7 @@ rules:
     # run 'convert' on most platforms ('magick convert' on windows)
     cmd:            [         convert, '{input}', '{output}.jpg' ]
     os.windows.cmd: [ magick, convert, '{input}', '{output}.jpg' ]
+    src: '{output}.jpg'
 
     html: <img src='{url}'>
 
@@ -119,6 +123,7 @@ rules:
 
     # use mupdf to convert the first page into an image
     cmd:  [ mutool, convert, -o, '{output}.png', '{input}', 1 ]
+    src: '{output}1.png'
 
     html: <img src='{url}'>
 
@@ -128,6 +133,7 @@ rules:
 
     # use ffmpeg to convert the first keyframe into an image
     cmd:  [ ffmpeg, -skip_frame, nokey, -i, '{input}', -frames:v, 1, '{output}.jpg' ]
+    src: '{output}.jpg'
 
     html: <img src='{url}'>
 
@@ -137,6 +143,7 @@ rules:
 
     # use ffmpeg to sample the first few seconds of audio
     cmd:  [ ffmpeg, -ss, 0, -i, '{input}', -t, 3, '{output}.wav' ]
+    src: '{output}.wav'
 
     html: <audio autoplay loop controls src='{url}'>
 

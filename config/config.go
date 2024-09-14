@@ -161,6 +161,7 @@ type FileConversionRule struct {
 	Ext  gen.Pair
 	Mime gen.Pair
 	Cmd  gen.Pair
+	Src  gen.Pair
 	Html gen.Pair
 }
 
@@ -180,10 +181,10 @@ func Rules() (string, []FileConversionRule) {
 		ext := optionalStrings("ext", v)
 		mime := optionalStrings("mime", v)
 		cmd := applyEnvPlaceholders("cmd", false, v)
-
+		src := optionalString("src", v)
 		html := optionalString("html", v)
 
-		rules = append(rules, FileConversionRule{ext, mime, cmd, html})
+		rules = append(rules, FileConversionRule{ext, mime, cmd, src, html})
 	}
 
 	// TODO: make Rules() return a gen.Pair

@@ -15,6 +15,7 @@ type ConversionRule struct {
 	matchMime bool
 	Mime      []string
 	cmd       []string
+	src       string
 	html      string
 }
 
@@ -36,9 +37,10 @@ func matchConversionRules(file string) (string, []ConversionRule) {
 
 		if matchExt || matchMime {
 			_, cmd := rule.Cmd.Strings()
+			_, src := rule.Src.String()
 			_, html := rule.Html.String()
 
-			matches = append(matches, ConversionRule{idx, matchExt, exts, matchMime, mimes, cmd, html})
+			matches = append(matches, ConversionRule{idx, matchExt, exts, matchMime, mimes, cmd, src, html})
 		}
 	}
 

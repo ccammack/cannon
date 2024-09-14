@@ -15,9 +15,8 @@ type Resource struct {
 	file          string // {input}
 	hash          string
 	tmpOutputFile string // {output}
-	serveFileExt  string // {outputExt}
+	srcFile       string // serve this file for html src attributes
 	html          string
-	htmlHash      string
 	stdout        string // {stdout}
 	stderr        string // {stderr}
 	reader        *readseeker.ReadSeeker
@@ -65,7 +64,7 @@ func setCurrentResource(file string, hash string, ch chan *Resource) {
 			file:          file,
 			hash:          hash,
 			tmpOutputFile: createPreviewFile(resourceManager.tempDir),
-			serveFileExt:  file,
+			srcFile:       file,
 		}
 		resourceManager.cache[hash] = res
 		resourceManager.current = res
@@ -86,7 +85,7 @@ func setCurrentResource(file string, hash string, ch chan *Resource) {
 
 			// give it a reader; some converted files will fail because they are still open
 			// TODO: figure out how to wait for the output file to be closed before creating the readseeker
-			res.reader = readseeker.New(res.serveFileExt)
+			res.reader = readseeker.New(res.srcFile)
 
 			// work complete
 			res.ready = true
@@ -181,7 +180,6 @@ func (resource *Resource) serveRaw() bool {
 
 	// display the first part of the raw file
 	resource.html = "<xmp>" + s + "</xmp>"
-	resource.htmlHash = util.MakeHash(resource.html)
 
 	return true
 }
@@ -199,7 +197,6 @@ func (resource *Resource) serveInput(rule ConversionRule) bool {
 
 	// replace placeholders
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.hash)
-	resource.htmlHash = util.MakeHash(resource.html)
 
 	return true
 }
@@ -217,22 +214,24 @@ func (resource *Resource) serveCommand(rule ConversionRule) bool {
 		return false
 	}
 
-	// generate output filename
-	// TODO: allow the user to define their own vars in config.yml
-	resource.serveFileExt = findMatchingOutputFile(resource.tmpOutputFile)
+	// use the *src: value provided or guess the output file by matching the wildcard "{output}*"
+	if rule.src != "" {
+		resource.srcFile = config.ReplacePlaceholder(rule.src, "{output}", resource.tmpOutputFile)
+	} else {
+		resource.srcFile = findMatchingOutputFile(resource.tmpOutputFile)
+	}
 
 	// replace html placeholders
 	html := rule.html
 	html = config.ReplaceEnvPlaceholders(html)
 	html = config.ReplacePlaceholder(html, "{output}", resource.tmpOutputFile)
-	html = config.ReplacePlaceholder(html, "{outputext}", resource.serveFileExt)
 	html = config.ReplacePlaceholder(html, "{url}", "{document.location.href}"+"file/"+resource.hash)
 	html = config.ReplacePlaceholder(html, "{stdout}", resource.stdout)
 	html = config.ReplacePlaceholder(html, "{stderr}", resource.stderr)
 
 	// replace {content} with the contents of the resource.outputExt file
 	if strings.Contains(html, "{content}") {
-		b, err := os.ReadFile(resource.serveFileExt)
+		b, err := os.ReadFile(resource.srcFile)
 		if err != nil {
 			html = config.ReplacePlaceholder(html, "{content}", string(b))
 		}
@@ -240,7 +239,6 @@ func (resource *Resource) serveCommand(rule ConversionRule) bool {
 
 	// save output html
 	resource.html = html
-	resource.htmlHash = util.MakeHash(resource.html)
 
 	return true
 }
