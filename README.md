@@ -57,7 +57,9 @@ The configuration file supports several kinds of `{placeholder}` strings which w
 
 * `*browser:` values require the `'{url}'` placeholder
 
-* `*cmd:` values requires the `'{input}'` placeholder and will also accept an optional `'{output}'` placeholder that may include an extension: `'{output}.jpg'`
+* `*cmd:` values require the `'{input}'` placeholder and usually the `'{output}'` placeholder with an optional extension: `'{output}.jpg'`
+
+* `*src:` values require the `'{output}'` placeholder to define the output filename pattern that should be served on the page by the `src='{url}'` HTML attribute.
 
 * `*html:` values generally use `'{url}'` to refer to the output file, but may also use `'{stdout}'` or `'{content}'` to directly capture the output from a successful file conversion
 
@@ -163,7 +165,7 @@ For example, `mp3` and `wav` files can be served directly using the `<audio>` ta
     html: <audio autoplay loop controls src='{url}'>
 ```
 
-All other audio files require sampling and conversion using `ffmpeg` to create a short audio preview. The `{input}` and `{output}` parameters are required for this conversion. The `{output}` parameter may specify an extension:
+All other audio files require sampling and conversion using `ffmpeg` to create a short audio preview. The `{input}` and `{output}` parameters are required for this conversion. The `{output}` parameter may specify an extension. The `*src:` key defines the output filename pattern that will be served on the page by the `src='{url}'` HTML attribute:
 
 ```yaml
   - ################################################################
@@ -172,6 +174,7 @@ All other audio files require sampling and conversion using `ffmpeg` to create a
 
     # use ffmpeg to sample the first few seconds of audio
     cmd:  [ ffmpeg, -ss, 0, -i, '{input}', -t, 3, '{output}.wav' ]
+    src: '{output}.wav'
 
     html: <audio autoplay loop controls src='{url}'>
 ```
