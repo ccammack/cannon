@@ -11,7 +11,7 @@ It follows rules defined in its configuration to sample and convert each selecte
 Installing Cannon requires a recent version of [Go](https://go.dev/):
 
 ```
-go install -v github.com/ccammack/cannon@b64c36993ca187807e79560acc0b94eaaff25b02
+go install -v github.com/ccammack/cannon@0e092c6cd3cf476b963c2e2cc9eed217d5c784c6
 ```
 
 After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate location:
@@ -22,7 +22,7 @@ After installation, copy the default [configuration file](https://github.com/cca
 * On Linux and other systems, the configuration file should be copied to:
   * ~/.config/cannon/cannon.yml
 
-# Configuration
+# Initial Configuration
 
 ## MIME Type Detection
 
@@ -46,6 +46,52 @@ Running `cannon --start` from the command line will automatically open a web bro
 browser:            [ google-chrome,                                             --autoplay-policy=no-user-gesture-required, '{url}' ]
 os.windows.browser: [ '{env.ProgramFiles}/Google/Chrome/Application/chrome.exe', --autoplay-policy=no-user-gesture-required, '{url}' ]
 ```
+
+# Running
+
+Run `cannon --start` in one console to start the server and open the browser. The server will check the configured dependencies and print warnings about any missing applications. Use the `--quiet` option when starting the server to suppress this output or configure the `*logfile:` to send it to a file.
+
+```
+$ cannon --start
+Starting server: http://localhost:8888
+Error finding deps[0].apps[convert]: exec: "convert": executable file not found in $PATH
+https://imagemagick.org ($ sudo apt install imagemagick)
+```
+
+Open a second console and run `cannon` with a native HTML media file, such as [Rube Goldberg's Self-Operating Napkin (1931)](Self-Operating_Napkin.gif "Image source: Wikimedia Commons"):
+
+```
+$ cannon Self-Operating_Napkin.gif
+{"status":"success"}
+image/gif
+{
+ "IsDir": false,
+ "ModTime": "2024-07-15T19:30:28.690135633-04:00",
+ "Mode": 420,
+ "Name": "Self-Operating_Napkin.gif",
+ "Size": 33065
+}
+```
+
+The file will appear in the browser and the server console will output the steps it followed to display the file:
+
+```
+$ cannon --start
+[...]
+Select file: /home/ccammack/work/public/github.com/ccammack/cannon/Self-Operating_Napkin.gif
+Match rule[0]: {0 true [apng avif gif jpg jpeg jfif pjpeg pjp png svg webp] false [] []  <img src='{url}'>}
+Apply rule[0]: {0 true [apng avif gif jpg jpeg jfif pjpeg pjp png svg webp] false [] []  <img src='{url}'>}
+Serve selected: <img src='{document.location.href}file/c89f9670b08a1a92388b1804616b41e0'>
+```
+
+Use `cannon --stop` to stop the server:
+
+```
+$ cannon --stop
+{"status":"success"}
+```
+
+# Additional Configuration
 
 ## Placeholder Patterns
 
@@ -75,7 +121,7 @@ host.hal9k.port: 9999
 
 At runtime, the most specific matching key that exists for each value will be used, so matching *host* keys will have the highest priority, followed by matching *os* keys, followed by the *default* key for each value.
 
-> YAML configurations require consistent indentation on the left side.
+> YAML configurations require consistent indentation on the left margin.
 
 ## Dependencies
 
@@ -86,22 +132,9 @@ Error finding deps[3].apps[chroma]: exec: "chroma": executable file not found in
 https://github.com/alecthomas/chroma/releases (download/extract into the $PATH)
 ```
 
-# Running
-
-Run `cannon --quiet --start` in one console to start the server and open the browser, then open a second console and give it a native HTML media file to display, such as [Rube Goldberg's Self-Operating Napkin (1931)](Self-Operating_Napkin.gif "Image source: Wikimedia Commons"):
-
-```
-cannon --quiet --start
-```
-
-```
-cannon Self-Operating_Napkin.gif
-cannon --stop
-```
-
 # File Manager Integration
 
-Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires that one map a key to toggle the server on and off and set the previewer. Integrating other file managers should follow a similar pattern.
+Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires the `lfrc` file to set the previewer and also to map a key that toggles the server on and off. Integrating other file managers should follow a similar pattern.
 
 On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\lf\lfrc` to `map` the `T` key to toggle the server and set the value for the `previewer`:
 
@@ -123,7 +156,7 @@ Start `lf` as usual and then press `T` to start the server and open the preview 
 
 # Closing Files
 
-Cannon will stream native audio and video files to the browser when selected, but this locks the file and prevents `lf` from deleting or moving it elsewhere. Use `cannon --quiet --close` to close a file and allow delete and move operations to proceed. For example, this Powershell *move* script closes each selected file before attempting to move it in case the file is currently streaming:
+Cannon will stream native audio and video files directly to the browser when selected, but this locks the file and prevents `lf` from performing file operations on it. Use `cannon --quiet --close` to close a file and allow rename, delete and move operations to proceed. For example, this Powershell *move* script closes each selected file before attempting to move it in case the file is currently streaming:
 
 ```PS1
 # create the output directory $args[0]
