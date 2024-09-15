@@ -1,7 +1,9 @@
 package cache
 
 import (
+	"fmt"
 	"log"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -21,6 +23,7 @@ type Resource struct {
 	stderr        string // {stderr}
 	reader        *readseeker.ReadSeeker
 	ready         bool
+	progress      []string
 }
 
 var resourceManager = struct {
@@ -67,21 +70,30 @@ func setCurrentResource(file string, hash string, ch chan *Resource) {
 
 		go func() {
 			// find the first matching configuration rule
-			_, rules := matchConversionRules(res.file)
+			_, rules := matchConversionRules(res)
 			if len(rules) == 0 {
 				// no matching rule found
+				res.progress = append(res.progress, fmt.Sprint("No matching rules found"))
 				res.serveRaw()
 			} else {
 				// apply the first matching rule
 				rule := rules[0]
+				res.progress = append(res.progress, fmt.Sprintf("Apply rule[%d]: %v", rule.idx, rule))
+
 				if !res.serveInput(rule) && !res.serveCommand(rule) && !res.serveRaw() {
 					log.Printf("Error serving resource: %v", res)
+					res.progress = append(res.progress, fmt.Sprintf("Error serving resource: %v", res))
 				}
 			}
 
 			// give it a reader; some converted files will fail because they are still open
 			// TODO: figure out how to wait for the output file to be closed before creating the readseeker
 			res.reader = readseeker.New(res.srcFile)
+
+			// log progress
+			for _, line := range res.progress {
+				log.Println(line)
+			}
 
 			// work complete
 			res.ready = true
@@ -144,6 +156,17 @@ func currReader() (*readseeker.ReadSeeker, bool) {
 	return nil, false
 }
 
+func summarize(line string) string {
+	length := 80
+	half := int(math.Floor(float64((length - 1) / 2)))
+	v := []rune(strings.ReplaceAll(line, "\n", ""))
+	if length >= len(v) {
+		return line
+	}
+	output := string(v[:half]) + " [...] " + string(v[len(v)-half:])
+	return output
+}
+
 func (resource *Resource) serveRaw() bool {
 	// max display length for unknown file types
 	const maxLength = 4096
@@ -176,6 +199,7 @@ func (resource *Resource) serveRaw() bool {
 
 	// display the first part of the raw file
 	resource.html = "<xmp>" + s + "</xmp>"
+	resource.progress = append(resource.progress, fmt.Sprintf("Serve raw: %s", summarize(resource.html)))
 
 	return true
 }
@@ -193,6 +217,7 @@ func (resource *Resource) serveInput(rule ConversionRule) bool {
 
 	// replace placeholders
 	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.hash)
+	resource.progress = append(resource.progress, fmt.Sprintf("Serve selected: %s", summarize(resource.html)))
 
 	return true
 }
@@ -207,6 +232,7 @@ func (resource *Resource) serveCommand(rule ConversionRule) bool {
 	exit := runAndWait(resource, rule)
 	if exit != 0 {
 		// serve raw on command failure
+		resource.progress = append(resource.progress, fmt.Sprintf("Command failed with status code: %d", exit))
 		return false
 	}
 
@@ -235,6 +261,6 @@ func (resource *Resource) serveCommand(rule ConversionRule) bool {
 
 	// save output html
 	resource.html = html
-
+	resource.progress = append(resource.progress, fmt.Sprintf("Serve output: %s", summarize(resource.html)))
 	return true
 }

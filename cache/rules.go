@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"path"
 	"strings"
 
@@ -19,12 +20,13 @@ type ConversionRule struct {
 	html      string
 }
 
-func matchConversionRules(file string) (string, []ConversionRule) {
-	extension := strings.ToLower(strings.TrimLeft(path.Ext(file), "."))
-	mimetype := strings.ToLower(GetMimeType(file))
+func matchConversionRules(res *Resource) (string, []ConversionRule) {
+	res.progress = append(res.progress, fmt.Sprintf("Select file: %s", res.file))
+
+	extension := strings.ToLower(strings.TrimLeft(path.Ext(res.file), "."))
+	mimetype := strings.ToLower(GetMimeType(res.file))
 
 	matches := []ConversionRule{}
-
 	rulesk, rulesv := config.Rules()
 	for idx, rule := range rulesv {
 		// TODO: add support for glob patterns
@@ -40,7 +42,9 @@ func matchConversionRules(file string) (string, []ConversionRule) {
 			_, src := rule.Src.String()
 			_, html := rule.Html.String()
 
-			matches = append(matches, ConversionRule{idx, matchExt, exts, matchMime, mimes, cmd, src, html})
+			match := ConversionRule{idx, matchExt, exts, matchMime, mimes, cmd, src, html}
+			res.progress = append(res.progress, fmt.Sprintf("Match rule[%d]: %v", idx, match))
+			matches = append(matches, match)
 		}
 	}
 

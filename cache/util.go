@@ -3,6 +3,7 @@ package cache
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -48,6 +49,8 @@ func runAndWait(resource *Resource, rule ConversionRule) int {
 		"{output}": resource.tmpOutputFile,
 	})
 
+	resource.progress = append(resource.progress, fmt.Sprintf("Run command: %v %v", cmd, args))
+
 	// timeout
 	_, timeout := config.Timeout().Int()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Millisecond)
@@ -66,6 +69,7 @@ func runAndWait(resource *Resource, rule ConversionRule) int {
 
 	// fail if the command takes too long
 	if ctx.Err() == context.DeadlineExceeded {
+		resource.progress = append(resource.progress, fmt.Sprint("Command timed out!"))
 		return 255
 	}
 
