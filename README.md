@@ -76,8 +76,8 @@ image/gif
 The file will appear in the browser and the server console will output the steps it followed to display the file:
 
 ```
-$ cannon --start
 [...]
+
 Select file: /home/ccammack/work/public/github.com/ccammack/cannon/Self-Operating_Napkin.gif
 Match rule[0]: {0 true [apng avif gif jpg jpeg jfif pjpeg pjp png svg webp] false [] []  <img src='{url}'>}
 Apply rule[0]: {0 true [apng avif gif jpg jpeg jfif pjpeg pjp png svg webp] false [] []  <img src='{url}'>}
@@ -89,6 +89,56 @@ Use `cannon --stop` to stop the server:
 ```
 $ cannon --stop
 {"status":"success"}
+```
+# File Manager Integration
+
+## Configuring `lf`
+
+Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires the `lfrc` file to set the previewer and also to map a key that toggles the server on and off. Integrating other file managers should follow a similar pattern.
+
+On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\lf\lfrc` to `map` the `T` key to toggle the server and set the value for the `previewer`:
+
+```ini
+# configure previews
+map T &cannon --quiet --toggle
+set previewer cannon
+```
+
+On Linux, change the `lf` configuration file `~/.config/lf/lfrc` in a similar fashion:
+
+```ini
+# configure previews
+map T $(cannon --quiet --toggle &)
+set previewer cannon
+```
+
+Start `lf` as usual and then press `T` to start the server and open the preview browser. Browse the file system using `lf` and file previews should appear in the browser window. Press `T` again to stop the server.
+
+## Closing Files
+
+Cannon will stream native audio and video files directly to the browser when selected, but this locks the file and prevents `lf` from performing file operations on it. Use `cannon --quiet --close` to close a file and allow rename, delete and move operations to proceed. For example, this Powershell *move* script closes each selected file before attempting to move it in case the file is currently streaming:
+
+```PS1
+# create the output directory $args[0]
+$dest = $args[0]
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+# move all of the files listed in $env:fx into the output directory
+$lines = [String[]]$env:fx
+$lines = $lines.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) 
+foreach ($line in $lines) {
+	# trim spaces and double quotes
+	$line = $line.Trim().Trim('"').Trim()
+
+	# tell cannon to close the file
+	& cannon --quiet --close $line
+
+	# allow long pathnames
+	$line = "\\?\" + $line
+
+	# move the file
+	Move-Item -LiteralPath $line -Destination $dest -Force
+}
 ```
 
 # Additional Configuration
@@ -132,56 +182,7 @@ Error finding deps[3].apps[chroma]: exec: "chroma": executable file not found in
 https://github.com/alecthomas/chroma/releases (download/extract into the $PATH)
 ```
 
-# File Manager Integration
-
-Configuring [lf](https://github.com/gokcehan/lf) to use Cannon requires the `lfrc` file to set the previewer and also to map a key that toggles the server on and off. Integrating other file managers should follow a similar pattern.
-
-On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\lf\lfrc` to `map` the `T` key to toggle the server and set the value for the `previewer`:
-
-```ini
-# configure previews
-map T &cannon --quiet --toggle
-set previewer cannon
-```
-
-On Linux, change the `lf` configuration file `~/.config/lf/lfrc` in a similar fashion:
-
-```ini
-# configure previews
-map T $(cannon --quiet --toggle &)
-set previewer cannon
-```
-
-Start `lf` as usual and then press `T` to start the server and open the preview browser. Browse the file system using `lf` and file previews should appear in the browser window. Press `T` again to stop the server.
-
-# Closing Files
-
-Cannon will stream native audio and video files directly to the browser when selected, but this locks the file and prevents `lf` from performing file operations on it. Use `cannon --quiet --close` to close a file and allow rename, delete and move operations to proceed. For example, this Powershell *move* script closes each selected file before attempting to move it in case the file is currently streaming:
-
-```PS1
-# create the output directory $args[0]
-$dest = $args[0]
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
-
-# move all of the files listed in $env:fx into the output directory
-$lines = [String[]]$env:fx
-$lines = $lines.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) 
-foreach ($line in $lines) {
-	# trim spaces and double quotes
-	$line = $line.Trim().Trim('"').Trim()
-
-	# tell cannon to close the file
-	& cannon --quiet --close $line
-
-	# allow long pathnames
-	$line = "\\?\" + $line
-
-	# move the file
-	Move-Item -LiteralPath $line -Destination $dest -Force
-}
-```
-
-# File Conversion Rules
+## File Conversion Rules
 
 Web browsers support a limited set of native HTML media files, so displaying other file types requires installing additional software and configuring Cannon to handle each file type. For example, [`ffmpeg`](https://ffmpeg.org/) can convert most audio and video files to a native format, [`ImageMagick`](https://imagemagick.org/) can convert most image formats, and [`MuPDF`](https://mupdf.com/) can convert the first page of a PDF to an image so it can be displayed in the browser.
 
