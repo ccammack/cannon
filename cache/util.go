@@ -69,7 +69,7 @@ func runAndWait(resource *Resource, rule ConversionRule) int {
 
 	// fail if the command takes too long
 	if ctx.Err() == context.DeadlineExceeded {
-		resource.progress = append(resource.progress, fmt.Sprint("Command timed out!"))
+		resource.progress = append(resource.progress, "Command timed out!")
 		return 255
 	}
 

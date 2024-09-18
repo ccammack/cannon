@@ -81,7 +81,7 @@ The file will appear in the browser and the server console will output the steps
 Select file: /home/ccammack/work/public/github.com/ccammack/cannon/Self-Operating_Napkin.gif
 Match rule[0]: {0 true [apng avif gif jpg jpeg jfif pjpeg pjp png svg webp] false [] []  <img src='{url}'>}
 Apply rule[0]: {0 true [apng avif gif jpg jpeg jfif pjpeg pjp png svg webp] false [] []  <img src='{url}'>}
-Serve selected: <img src='{document.location.href}file/c89f9670b08a1a92388b1804616b41e0'>
+Serve selected: <img src='{document.location.href}src/c89f9670b08a1a92388b1804616b41e0'>
 ```
 
 Use `cannon --stop` to stop the server:

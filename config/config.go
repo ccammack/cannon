@@ -268,7 +268,7 @@ func init() {
 	Port()
 }
 
-func Start() {
+func Watch() {
 	// perform additional config checks for --start
 	postLoad()
 

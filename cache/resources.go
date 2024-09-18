@@ -3,7 +3,6 @@ package cache
 import (
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"strings"
 	"sync"
@@ -73,7 +72,7 @@ func setCurrentResource(file string, hash string, ch chan *Resource) {
 			_, rules := matchConversionRules(res)
 			if len(rules) == 0 {
 				// no matching rule found
-				res.progress = append(res.progress, fmt.Sprint("No matching rules found"))
+				res.progress = append(res.progress, "No matching rules found")
 				res.serveRaw()
 			} else {
 				// apply the first matching rule
@@ -158,7 +157,7 @@ func currReader() (*readseeker.ReadSeeker, bool) {
 
 func summarize(line string) string {
 	length := 80
-	half := int(math.Floor(float64((length - 1) / 2)))
+	half := int(float64((length - 1) / 2))
 	v := []rune(strings.ReplaceAll(line, "\n", ""))
 	if length >= len(v) {
 		return line
@@ -216,7 +215,7 @@ func (resource *Resource) serveInput(rule ConversionRule) bool {
 	}
 
 	// replace placeholders
-	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"file/"+resource.hash)
+	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"src/"+resource.hash)
 	resource.progress = append(resource.progress, fmt.Sprintf("Serve selected: %s", summarize(resource.html)))
 
 	return true
@@ -247,7 +246,7 @@ func (resource *Resource) serveCommand(rule ConversionRule) bool {
 	html := rule.html
 	html = config.ReplaceEnvPlaceholders(html)
 	html = config.ReplacePlaceholder(html, "{output}", resource.tmpOutputFile)
-	html = config.ReplacePlaceholder(html, "{url}", "{document.location.href}"+"file/"+resource.hash)
+	html = config.ReplacePlaceholder(html, "{url}", "{document.location.href}"+"src/"+resource.hash)
 	html = config.ReplacePlaceholder(html, "{stdout}", resource.stdout)
 	html = config.ReplacePlaceholder(html, "{stderr}", resource.stderr)
 

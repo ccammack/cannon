@@ -132,7 +132,7 @@ func HandleClose(w http.ResponseWriter, r *http.Request) {
 	util.RespondJson(w, body)
 }
 
-func HandleFile(w http.ResponseWriter, r *http.Request) {
+func HandleSrc(w http.ResponseWriter, r *http.Request) {
 	reader, ok := currReader()
 	if ok {
 		http.ServeContent(w, r, filepath.Base(reader.Info.Name()), reader.Info.ModTime(), reader)
