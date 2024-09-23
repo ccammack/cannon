@@ -8,10 +8,11 @@ It follows rules defined in its configuration to sample and convert each selecte
 
 # Installation
 
-Installing Cannon requires a recent version of [Go](https://go.dev/):
+Installing Cannon's client (*cannon*) and server (*cannond*) requires a recent version of [Go](https://go.dev/):
 
 ```
-go install -v github.com/ccammack/cannon@0e092c6cd3cf476b963c2e2cc9eed217d5c784c6
+go install -v github.com/ccammack/cannon/cmd/cannon@63258317a943372191e676e77fc1e9df45c5932c
+go install -v github.com/ccammack/cannon/cmd/cannond@63258317a943372191e676e77fc1e9df45c5932c
 ```
 
 After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate location:
@@ -40,7 +41,7 @@ os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, 
 
 ## Browser Selection
 
-Running `cannon --start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews.
+Running `cannond start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews.
 
 ```yaml
 browser:            [ google-chrome,                                             --autoplay-policy=no-user-gesture-required, '{url}' ]
@@ -49,10 +50,10 @@ os.windows.browser: [ '{env.ProgramFiles}/Google/Chrome/Application/chrome.exe',
 
 # Running
 
-Run `cannon --start` in one console to start the server and open the browser. The server will check the configured dependencies and print warnings about any missing applications. Use the `--quiet` option when starting the server to suppress this output or configure the `*logfile:` to send it to a file.
+Run `cannond start` in one console to start the server and open the browser. The server will check the configured dependencies and print warnings about any missing applications. Use the `--quiet` option when starting the server to suppress this output or configure the `*logfile:` to send it to a file.
 
 ```
-$ cannon --start
+$ cannond start
 Starting server: http://localhost:8888
 Error finding deps[0].apps[convert]: exec: "convert": executable file not found in $PATH
 https://imagemagick.org ($ sudo apt install imagemagick)
@@ -84,10 +85,10 @@ Apply rule[0]: {0 true [apng avif gif jpg jpeg jfif pjpeg pjp png svg webp] fals
 Serve selected: <img src='{document.location.href}src/c89f9670b08a1a92388b1804616b41e0'>
 ```
 
-Use `cannon --stop` to stop the server:
+Use `cannond stop` to stop the server:
 
 ```
-$ cannon --stop
+$ cannond stop
 {"status":"success"}
 ```
 # File Manager Integration
@@ -100,7 +101,7 @@ On Windows, change the `lf` configuration file `C:\Users\USERNAME\AppData\Local\
 
 ```ini
 # configure previews
-map T &cannon --quiet --toggle
+map T &cannond --quiet toggle
 set previewer cannon
 ```
 
@@ -108,7 +109,7 @@ On Linux, change the `lf` configuration file `~/.config/lf/lfrc` in a similar fa
 
 ```ini
 # configure previews
-map T $(cannon --quiet --toggle &)
+map T $(cannond --quiet toggle &)
 set previewer cannon
 ```
 
@@ -123,21 +124,18 @@ Cannon will stream native audio and video files directly to the browser when sel
 $dest = $args[0]
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
-# move all of the files listed in $env:fx into the output directory
-$lines = [String[]]$env:fx
-$lines = $lines.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) 
-foreach ($line in $lines) {
+# move all of the files listed in $env:fx to the output directory
+$files = [String[]]$env:fx
+$files = $files.Split([System.Environment]::NewLine, [System.StringSplitOptions]::RemoveEmptyEntries) 
+foreach ($file in $files) {
 	# trim spaces and double quotes
-	$line = $line.Trim().Trim('"').Trim()
+	$file = $file.Trim().Trim('"').Trim()
 
 	# tell cannon to close the file
-	& cannon --quiet --close $line
-
-	# allow long pathnames
-	$line = "\\?\" + $line
+	& cannon --quiet --close $file
 
 	# move the file
-	Move-Item -LiteralPath $line -Destination $dest -Force
+	Move-Item -LiteralPath $file -Destination $dest -Force
 }
 ```
 
@@ -175,7 +173,7 @@ At runtime, the most specific matching key that exists for each value will be us
 
 ## Dependencies
 
-The optional `*deps:` key can be used to make sure the expected file conversion programs are installed and warn the user if not. On `cannon --start`, the program will check all of the executables specified in `*deps:*apps:` to make sure they exist and can be run. If not, Cannon will output the corresponding description specified in `*deps:*desc:` to give the user installation instructions for the missing program.
+The optional `*deps:` key can be used to make sure the expected file conversion programs are installed and warn the user if not. On `cannond start`, the program will check all of the executables specified in `*deps:*apps:` to make sure they exist and can be run. If not, Cannon will output the corresponding description specified in `*deps:*desc:` to give the user installation instructions for the missing program.
 
 ```ps1
 Error finding deps[3].apps[chroma]: exec: "chroma": executable file not found in %PATH%
