@@ -15,7 +15,7 @@ go install -v github.com/ccammack/cannon/cmd/cannon@63258317a943372191e676e77fc1
 go install -v github.com/ccammack/cannon/cmd/cannond@63258317a943372191e676e77fc1e9df45c5932c
 ```
 
-After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate location:
+After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate [XDG_CONFIG_HOME](https://specifications.freedesktop.org/basedir-spec/latest/) location:
 
 * On Windows, the configuration file should be copied to:
   * C:\Users\\**USERNAME**\\AppData\\Local\\cannon\\cannon.yml
@@ -27,7 +27,7 @@ After installation, copy the default [configuration file](https://github.com/cca
 
 ## MIME Type Detection
 
-Cannon relies on an external program to perform *MIME* type detection and the command to use is specified using the `*mime:` keys in the configuration. By default, this is accomplished on most platforms using the built-in `file` command:
+Cannon relies on an external program to perform *MIME* type detection and the command to use is specified using the `*mime:` keys in the configuration. By default, this is accomplished on most platforms using the built-in `file` command. Specify the `'{input}'` placeholder in the right place so Cannon can insert the selected file:
 
 ```yaml
 mime:           [ file, -b, --mime-type, '{input}' ]
@@ -41,7 +41,7 @@ os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, 
 
 ## Browser Selection
 
-Running `cannond start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews.
+Running `cannond start` from the command line will automatically open a web browser to display the output. This defaults to [Chrome](https://www.google.com/chrome/) but can be configured using the `*browser:` keys in the configuration file. Browsers usually disable autoplay by default, so set the appropriate option to re-enable it in your browser for faster media previews. Specify the `'{url}'` placeholder in the right place in the command:
 
 ```yaml
 browser:            [ google-chrome,                                             --autoplay-policy=no-user-gesture-required, '{url}' ]

@@ -1,42 +1,42 @@
 
-# all keys in this file may be prefixed to define per-platform and per-host values
+# All keys in this file may be prefixed to define per-platform and per-host values.
 #
-#     use os.<$GOOS>.<key> to set per-OS values using $GOOS: https://go.dev/doc/install/source#environment
-#     use host.<name>.<key> to set per-host values using the lowercase hostname
+#     Use os.<$GOOS>.<key> to set per-OS values using $GOOS: https://go.dev/doc/install/source#environment
+#     Use host.<name>.<key> to set per-host values using the lowercase hostname:
 #         port:            8888
 #         os.windows.port: 7777
 #         host.hal9k.port: 9999
 #
-#     at runtime, the most-specific matching key that exists will be used: host.*.key > os.*.key > key
+#     At runtime, the most-specific matching key that exists will be used: host.*.key > os.*.key > key
 
-# specify server port
+# Specify server port.
 port: 8888
 
-# specify file conversion timeout in milliseconds
-#     if a file conversion takes too long, just display the raw file data instead
+# Specify file conversion timeout in milliseconds.
+#     If a file conversion takes too long, just display the raw file data instead.
 timeout: 500
 
-# define the exit value to be used when displaying a file at the command line: $ cannon <file>
-#     this exists because lf attempts to cache the preview unless the previewer returns a non-zero exit code
+# Define the exit value to be used when displaying a file at the command line: $ cannon <file>
+#     This exists because lf attempts to cache the preview unless the previewer returns a non-zero exit code
 exit: 255
 
-# define the logfile ($ tail -f <logfile>)
+# Define the logfile ($ tail -f <logfile>).
 #logfile:            /tmp/cannon.log
 #os.windows.logfile: '{env.TEMP}/cannon.log'
 
-# specify command and args to start the preview browser
-#     use "browser: []" to prevent the browser from starting when running over SSH
-#     specify the '{url}' placeholder arg in the correct position so cannon can insert the server url
-#     specify the appropriate argument for the browser to enable auto-play for faster media previews
+# Specify command and args to start the preview browser.
+#     Use "browser: []" to prevent the browser from starting when running over SSH.
+#     Specify the '{url}' placeholder arg in the correct position so cannon can insert the server url.
+#     Specify the appropriate argument for the browser to enable auto-play for faster media previews.
 browser:            [ google-chrome,                                             --autoplay-policy=no-user-gesture-required, '{url}' ]
 os.windows.browser: [ '{env.ProgramFiles}/Google/Chrome/Application/chrome.exe', --autoplay-policy=no-user-gesture-required, '{url}' ]
 
-# specify command and args to detect the input file's mime-type
-#     specify the '{input}' placeholder arg in the correct position so cannon can insert the selected file
+# Specify command and args to detect the input file's mime-type.
+#     Specify the '{input}' placeholder arg in the correct position so cannon can insert the selected file.
 mime:            [ file,                                                    -b, --mime-type, '{input}' ]
 os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, --mime-type, '{input}' ]
 
-# specify contents of <style> for display
+# Specify contents of <style> for display.
 style: |
   #container { width:100%;  }
   img        { max-width: 100%; height:auto; max-height: 100%;  }
@@ -44,10 +44,10 @@ style: |
   iframe     { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
   object     { max-width: 100%; height: auto; max-height: 100%; }
 
-# deps: (optional) specify the command line applications required to perform file conversions
-#     the existence of each application will be validated on --start and the missing ones will be logged
-#     apps: specify a list of executable names or full paths
-#     desc: specify a note to help the user find and install the apps[]
+# *deps: Optionally validate the command line applications required to perform file conversions.
+#     The existence of each application will be validated on server start and the missing ones will be logged.
+#     *apps: Specify a list of executable names or full paths.
+#     *desc: Specify a note to help the user find and install the apps[].
 deps:
   - ################################################################
     # imagemagick
@@ -72,23 +72,23 @@ deps:
     apps: [ chroma ]
     desc: https://github.com/alecthomas/chroma/releases (download/extract into the $PATH)
 
-# specify rules to convert each file type into its web equivalent for display in the browser
-#     completely independent rule sets can be defined using os.<$GOOS>.rules and host.<name>.rules
-#     rule sets are evaluated in order from top to bottom and the first matching rule will run
-#     each entry in the rule set uses the keys described below
-#     keys can be overloaded using os.<$GOOS>.key and host.<name>.key to handle special cases
+# Specify rules to convert each file type into its web equivalent for display in the browser.
+#     Use os.<$GOOS>.rules and host.<name>.rules to define completely independent rule sets.
+#     Rule sets are evaluated in order from top to bottom and the first matching rule will run.
+#     Each entry in the rule set uses the keys described below.
+#     Keys can be overloaded using os.<$GOOS>.key and host.<name>.key to handle special cases.
 #
-#      ext: specify extension patterns to match this rule
-#     mime: specify mime type patterns to match this rule
-#      cmd: specify the file conversion command to run when a matching rule is found
-#           specify '{input}' and '{output}' placeholders in the right positions so cannon can insert the filenames
-#           the output placeholder may specify an extension: '{output}.jpg'
-#      src: specify the file pattern to be served from the html src='{url}' attribute
-#           if not specified, cannon will guess the file to serve using the '{output}' placeholder
-#      html: specify the html fragment to display the output in the browser
-#            the html fragment supports several placeholders
-#            use '{url}' for elements that use src= references (serve the file specified by the *src: key)
-#            use '{stdout}|{stderr}|{content}' to insert the results of the file conversion directly
+#      ext: Specify extension patterns to match this rule.
+#     mime: Specify mime type patterns to match this rule.
+#      cmd: Specify the file conversion command to run when a matching rule is found.
+#           Specify '{input}' and '{output}' placeholders in the right positions so cannon can insert the filenames.
+#           The output placeholder may specify an extension: '{output}.jpg'
+#      src: Specify the file pattern to be served from the html src='{url}' attribute.
+#           If not specified, cannon will guess the file to serve using the '{output}' placeholder.
+#      html: Specify the html fragment to display the output in the browser.
+#            The html fragment supports several placeholders:
+#            Use '{url}' for elements that use src= references (serve the file specified by the *src: key).
+#            Use '{stdout}|{stderr}|{content}' to insert the results of the file conversion directly.
 rules:
   - ################################################################
     # native image extensions
