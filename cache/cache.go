@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/connections"
@@ -34,14 +35,28 @@ func prepareTemplateVars() map[string]interface{} {
 	if ok {
 		// serve the converted output file (or error text on failure)
 		data["title"] = template.HTMLEscapeString(filepath.Base(res.file))
+		data["hash"] = template.HTML(res.hash)
 		data["html"] = template.HTML(res.html)
 	} else {
 		// serve default values until the first resource is added
 		data["title"] = template.HTMLEscapeString("Cannon preview")
+		data["hash"] = template.HTML("")
 		data["html"] = template.HTML("<p>Waiting for file...</p>")
 	}
 
 	return data
+}
+
+func BroadcastCurrent() {
+	res, ok := currResource()
+	if ok {
+		// send the current resource to the clients
+		connections.Broadcast(map[string]interface{}{
+			"action": "update",
+			"hash":   res.hash,
+			"ready":  strconv.FormatBool(res.ready),
+		})
+	}
 }
 
 func HandleRoot(w http.ResponseWriter, r *http.Request) {

@@ -14,6 +14,7 @@ const PageTemplate = `
 			{{.style}}
 		</style>
 		<script>
+			const hash = {{.hash}}
 			window.onload = function(e) {
 				// replace placeholder addresses with document.location.href
 				const container = document.getElementById("container")
@@ -31,9 +32,15 @@ const PageTemplate = `
 				socket.onmessage = function(event) {
 					const data = JSON.parse(event.data)
 					switch (data.action) {
-						case "reload":
-							sendMessage({ "action": "close" })
-							requestAnimationFrame(() => { location.reload() })
+						case "update":
+							// console.log(data)
+							if (data.hash != hash) {
+								if (data.ready) {
+									// reload
+									sendMessage({ "action": "close" })
+									requestAnimationFrame(() => { location.reload() })
+								}
+							}
 							break
 						case "shutdown":
 							document.title = "Cannon preview";

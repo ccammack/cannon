@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/config"
@@ -88,6 +89,14 @@ func Start() {
 
 	// validate server config
 	config.Validate()
+
+	// broadcast
+	go func() {
+		for {
+			cache.BroadcastCurrent()
+			time.Sleep(33 * time.Millisecond)
+		}
+	}()
 
 	// listen and serve
 	mux := http.NewServeMux()
