@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/config"
+	"github.com/ccammack/cannon/resources"
 	"github.com/ccammack/cannon/server"
 	"github.com/ccammack/cannon/util"
 	"github.com/urfave/cli/v2"
@@ -103,7 +103,7 @@ func displayMetadata(v string) {
 	var mime, meta string
 	go func() {
 		defer wg.Done()
-		mime = cache.GetMimeType(v)
+		mime = resources.GetMimeType(v)
 	}()
 	go func() {
 		defer wg.Done()

@@ -1,4 +1,4 @@
-package cache
+package resources
 
 const PageTemplate = `
 <!DOCTYPE html>

@@ -1,157 +1,111 @@
 package cache
 
 import (
-	"encoding/json"
-	"fmt"
-	"html/template"
-	"log"
-	"net/http"
-	"path/filepath"
-	"strconv"
-
-	"github.com/ccammack/cannon/config"
-	"github.com/ccammack/cannon/connections"
-	"github.com/ccammack/cannon/util"
+	"sync"
 )
 
-func Shutdown() {
-	// tell the client to disconnect
-	connections.Broadcast(map[string]interface{}{
-		"action": "shutdown",
-	})
+type Status int
 
-	// close all resources
-	closeAll()
+const (
+	StatusNotFound = iota
+	StatusPending
+	StatusReady
+)
+
+type Payload interface {
+	Open()
+	Close()
 }
 
-func prepareTemplateVars() map[string]interface{} {
-	// set default values
-	_, style := config.Style().String()
-	data := map[string]interface{}{
-		"style": template.CSS(style),
-	}
-
-	res, ok := currResource()
-	if ok {
-		// serve the converted output file (or error text on failure)
-		data["title"] = template.HTMLEscapeString(filepath.Base(res.file))
-		data["hash"] = template.HTML(res.hash)
-		data["html"] = template.HTML(res.html)
-	} else {
-		// serve default values until the first resource is added
-		data["title"] = template.HTMLEscapeString("Cannon preview")
-		data["hash"] = template.HTML("")
-		data["html"] = template.HTML("<p>Waiting for file...</p>")
-	}
-
-	return data
+type CacheItem struct {
+	key     string
+	status  Status
+	payload Payload
+	mu      sync.Mutex
 }
 
-func BroadcastCurrent() {
-	res, ok := currResource()
-	if ok {
-		// send the current resource to the clients
-		connections.Broadcast(map[string]interface{}{
-			"action": "update",
-			"hash":   res.hash,
-			"ready":  strconv.FormatBool(res.ready),
-		})
+func (item *CacheItem) Open() {
+	item.mu.Lock()
+	defer item.mu.Unlock()
+	item.status = StatusPending
+
+	go func() {
+		item.payload.Open()
+		item.mu.Lock()
+		defer item.mu.Unlock()
+		item.status = StatusReady
+	}()
+}
+
+func (item *CacheItem) Close() {
+	item.mu.Lock()
+	defer item.mu.Unlock()
+	item.status = StatusPending
+
+	go func() {
+		item.payload.Close()
+		item.mu.Lock()
+		defer item.mu.Unlock()
+		item.status = StatusNotFound
+	}()
+}
+
+func (item *CacheItem) IsReady() bool {
+	item.mu.Lock()
+	defer item.mu.Unlock()
+	return item.status == StatusReady
+}
+
+type Cache struct {
+	items map[string]*CacheItem
+	mu    sync.RWMutex
+}
+
+func New() *Cache {
+	return &Cache{
+		items: make(map[string]*CacheItem),
 	}
 }
 
-func HandleRoot(w http.ResponseWriter, r *http.Request) {
-	// handle route /
-	if r.Header.Get("Upgrade") == "websocket" {
-		// handle socket connection requests
-		err := connections.New(w, r)
-		if err != nil {
-			http.Error(w, "WebSocket upgrade failed", http.StatusInternalServerError)
+func (c *Cache) Put(key string, payload Payload) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, ok := c.items[key]
+	if !ok {
+		item := &CacheItem{
+			key:     key,
+			payload: payload,
 		}
-	} else {
-		// handle normal page generation
-		templ := template.Must(template.New("page").Parse(PageTemplate))
-		vars := prepareTemplateVars()
-		err := templ.Execute(w, vars)
-		if err != nil {
-			log.Printf("error generating page: %v", err)
-		}
+		item.Open()
+		c.items[key] = item
 	}
 }
 
-func HandleDisplay(w http.ResponseWriter, r *http.Request) {
-	// select a new file to display
-	body := map[string]interface{}{}
-
-	// extract params from the request body
-	params := map[string]string{}
-	err := json.NewDecoder(r.Body).Decode(&params)
-	if err != nil {
-		log.Panicf("error decoding json payload: %v", err)
+func (c *Cache) Get(key string) (Status, Payload) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	item, ok := c.items[key]
+	if !ok {
+		return StatusNotFound, nil
 	}
-
-	// TODO: consider using file.ToLower() as the key rather than hashing
-	file := params["file"]
-	hash := params["hash"]
-
-	if file != "" && hash != "" {
-		// create a new resource
-		ch := make(chan *Resource)
-		setCurrentResource(file, hash, ch)
-
-		go func() {
-			// wait for the resource to be become ready
-			ready := <-ch
-			curr, ok := currResource()
-			if ok && curr == ready {
-				// request a reload if the current resource is the one that just became ready
-				connections.Broadcast(map[string]template.HTML{"action": "reload"})
-			} else {
-			}
-		}()
-
-		body["status"] = template.HTML("success")
-	} else {
-		// this is reached sometimes after deleting a file with lf
-		body["status"] = template.HTML("error")
-		body["message"] = template.HTML(fmt.Sprintf("Error reading file or hash: %s %s", file, hash))
+	if item.IsReady() {
+		return StatusReady, item.payload
 	}
-
-	// respond
-	util.RespondJson(w, body)
+	return StatusPending, nil
 }
 
-func HandleClose(w http.ResponseWriter, r *http.Request) {
-	// close the specified resource
-	body := map[string]interface{}{}
-
-	// extract params from the request body
-	params := map[string]string{}
-	err := json.NewDecoder(r.Body).Decode(&params)
-	if err != nil {
-		log.Panicf("error decoding json payload: %v", err)
-	}
-
-	hash := params["hash"]
-
-	if hash != "" {
-		// close the resource
-		close(hash)
-
-		body["status"] = template.HTML("success")
-	} else {
-		// not sure if this ever happens
-		body["status"] = template.HTML("error")
-		body["message"] = template.HTML(fmt.Sprintf("Error reading hash: %s", hash))
-	}
-
-	util.RespondJson(w, body)
-}
-
-func HandleSrc(w http.ResponseWriter, r *http.Request) {
-	reader, ok := currReader()
+func (c *Cache) Evict(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	item, ok := c.items[key]
 	if ok {
-		http.ServeContent(w, r, filepath.Base(reader.Info.Name()), reader.Info.ModTime(), reader)
-	} else {
-		http.Error(w, "http.StatusServiceUnavailable", http.StatusServiceUnavailable)
+		item.Close()
+		delete(c.items, key)
+	}
+}
+
+func (c *Cache) Clear() {
+	for hash := range c.items {
+		c.Evict(hash)
 	}
 }

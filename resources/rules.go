@@ -1,4 +1,4 @@
-package cache
+package resources
 
 import (
 	"fmt"

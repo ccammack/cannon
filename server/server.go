@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/config"
 	"github.com/ccammack/cannon/pid"
+	"github.com/ccammack/cannon/resources"
 	"github.com/ccammack/cannon/util"
 )
 
@@ -27,7 +27,7 @@ var (
 
 func shutdown() {
 	// normal cleanup
-	cache.Shutdown()
+	resources.Shutdown()
 
 	// unlock pid
 	pid.Unlock()
@@ -93,18 +93,18 @@ func Start() {
 	// broadcast
 	go func() {
 		for {
-			cache.BroadcastCurrent()
+			resources.BroadcastCurrent()
 			time.Sleep(33 * time.Millisecond)
 		}
 	}()
 
 	// listen and serve
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", cache.HandleRoot)
-	mux.HandleFunc("/src/", cache.HandleSrc)
-	mux.HandleFunc("/display", cache.HandleDisplay)
+	mux.HandleFunc("/", resources.HandleRoot)
+	mux.HandleFunc("/src/", resources.HandleSrc)
+	mux.HandleFunc("/display", resources.HandleDisplay)
 	mux.HandleFunc("/stop", handleStop)
-	mux.HandleFunc("/close", cache.HandleClose)
+	mux.HandleFunc("/close", resources.HandleClose)
 	server = &http.Server{
 		Addr:    fmt.Sprintf(":%v", port),
 		Handler: mux,
