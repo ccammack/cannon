@@ -12,9 +12,28 @@ const PageTemplate = `
 		</title>
 		<style type="text/css">
 			{{.style}}
+			.loading {
+				display: none;
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 9999;
+				width: 32px;
+				height: 32px;
+				border-radius: 50%;
+				border: 4px solid #ddd;
+				border-top-color: blue;
+				animation: loading 1s linear infinite;
+			}
+			@keyframes loading {
+				to {
+					transform: rotate(360deg);
+				}
+			}
 		</style>
 		<script>
 			const hash = {{.hash}}
+			let timerId = null
 			window.onload = function(e) {
 				// replace placeholder addresses with document.location.href
 				const container = document.getElementById("container")
@@ -33,10 +52,17 @@ const PageTemplate = `
 					const data = JSON.parse(event.data)
 					switch (data.action) {
 						case "update":
-							// console.log(data)
 							if (data.hash != hash) {
+								// the item to display has changed
+								if (!timerId) {
+									// show the spinner after a short timeout
+									timerId = setTimeout(() => {
+										document.querySelector('.loading').style.display = 'block';
+									}, 100)
+								}
+
+								// reload when ready
 								if (data.ready) {
-									// reload
 									sendMessage({ "action": "close" })
 									requestAnimationFrame(() => { location.reload() })
 								}
@@ -57,6 +83,7 @@ const PageTemplate = `
 	</head>
 	<body>
 		<div id="container">{{.html}}</div>
+		<div class="loading"></div>
 	</body>
 </html>
 `
