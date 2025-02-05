@@ -35,13 +35,6 @@ const PageTemplate = `
 			const hash = {{.hash}}
 			let timerId = null
 			window.onload = function(e) {
-				// replace placeholder addresses with document.location.href
-				const container = document.getElementById("container")
-				if (container) {
-					const inner = container.innerHTML.replaceAll("{document.location.href}", document.location.href)
-					container.innerHTML = inner
-				}
-
 				// open websocket
 				const socket = new WebSocket((document.location.href).replace(/^https?:/, "ws:"))
 				const sendMessage = function(obj) { socket.send(JSON.stringify(obj)) }

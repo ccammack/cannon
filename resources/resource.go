@@ -130,7 +130,7 @@ func (resource *Resource) serveInput(rule ConversionRule) bool {
 	}
 
 	// replace placeholders
-	resource.html = strings.ReplaceAll(rule.html, "{url}", "{document.location.href}"+"src/"+resource.hash)
+	resource.html = strings.ReplaceAll(rule.html, "{url}", "/src/"+resource.hash)
 	resource.progress = append(resource.progress, fmt.Sprintf("Serve selected: %s", summarize(resource.html)))
 
 	return true
@@ -161,7 +161,7 @@ func (resource *Resource) serveCommand(rule ConversionRule) bool {
 	html := rule.html
 	html = config.ReplaceEnvPlaceholders(html)
 	html = config.ReplacePlaceholder(html, "{output}", resource.tmpOutputFile)
-	html = config.ReplacePlaceholder(html, "{url}", "{document.location.href}"+"src/"+resource.hash)
+	html = config.ReplacePlaceholder(html, "{url}", "/src/"+resource.hash)
 	html = config.ReplacePlaceholder(html, "{stdout}", resource.stdout)
 	html = config.ReplacePlaceholder(html, "{stderr}", resource.stderr)
 
