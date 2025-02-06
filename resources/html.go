@@ -35,6 +35,9 @@ const PageTemplate = `
 			const hash = {{.hash}}
 			let timerId = null
 			window.onload = function(e) {
+			    // display hash
+				// document.body.prepend(Object.assign(document.createElement('div'), { textContent: hash }));
+
 				// open websocket
 				const socket = new WebSocket((document.location.href).replace(/^https?:/, "ws:"))
 				const sendMessage = function(obj) { socket.send(JSON.stringify(obj)) }
