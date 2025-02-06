@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/ccammack/cannon/cache"
 	"github.com/ccammack/cannon/config"
@@ -16,7 +18,8 @@ import (
 )
 
 var (
-	resourceCache        = cache.New()
+	resourceCache = cache.New()
+	mu            sync.Mutex
 	tempDir       string = ""
 	currHash      string = ""
 	// currFile      string = ""
@@ -108,6 +111,9 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 
 func HandleDisplay(w http.ResponseWriter, r *http.Request) {
 	// select a new file to display
+	mu.Lock()
+	defer mu.Unlock()
+
 	body := map[string]interface{}{}
 
 	// extract params from the request body
@@ -123,8 +129,11 @@ func HandleDisplay(w http.ResponseWriter, r *http.Request) {
 
 	if file != "" && hash != "" {
 		// create a new resource
-		res := NewResource(tempDir, file, hash)
-		resourceCache.Put(hash, res)
+		status, _ := resourceCache.Get(hash)
+		if status == cache.StatusNotFound {
+			resourceCache.Put(hash, NewResource(tempDir, file, hash))
+		}
+
 		currHash = hash
 		body["status"] = template.HTML("success")
 	} else {
@@ -164,7 +173,10 @@ func HandleClose(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleSrc(w http.ResponseWriter, r *http.Request) {
-	status, result := resourceCache.Get(currHash)
+	// extract hash to display from url
+	hash, _ := strings.CutPrefix(r.URL.Path, "/src/")
+
+	status, result := resourceCache.Get(hash)
 	res := result.(*Resource)
 	if status == cache.StatusReady {
 		reader := res.reader
