@@ -14,7 +14,7 @@ port: 8888
 
 # Specify file conversion timeout in milliseconds.
 #     If a file conversion takes too long, just display the raw file data instead.
-timeout: 500
+timeout: 5000
 
 # Define the exit value to be used when displaying a file at the command line: $ cannon <file>
 #     This exists because lf attempts to cache the preview unless the previewer returns a non-zero exit code
@@ -38,11 +38,11 @@ os.windows.mime: [ '{env.USERPROFILE}/scoop/apps/git/current/usr/bin/file', -b, 
 
 # Specify contents of <style> for display.
 style: |
-  #container { width:100%;  }
-  img        { max-width: 100%; height:auto; max-height: 100%;  }
-  video      { max-width: 100%; height: auto; max-height: 100%;  }
+  #container { width: 100%; }
+  img        { max-width: 100%; height: auto; display: block; }
+  video      { max-width: 100%; height: auto; display: block; }
+  object     { max-width: 100%; height: auto; display: block; }
   iframe     { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
-  object     { max-width: 100%; height: auto; max-height: 100%; }
 
 # *deps: Optionally validate the command line applications required to perform file conversions.
 #     The existence of each application will be validated on server start and the missing ones will be logged.
@@ -146,6 +146,61 @@ rules:
     src: '{output}.wav'
 
     html: <audio autoplay loop controls src='{url}'>
+
+  - ################################################################
+    # native 3d model extensions
+    ext:  [ glb, gltf ]
+    html: |
+      <div>
+          <script type="importmap">
+          {
+            "imports": {
+              "three":         "https://cdn.jsdelivr.net/npm/three@0.172.0/+esm",
+              "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/"
+            }
+          }
+          </script>
+          <script type="module">
+            import { Scene, Color, PerspectiveCamera, WebGLRenderer, Box3, Vector3, MeshStandardMaterial } from "three";
+            import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+            import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+            const scene = new Scene();
+            scene.background = new Color(0xffffff);
+            const camera = new PerspectiveCamera()
+            const renderer = new WebGLRenderer({ antialias: true });
+            const controls = new OrbitControls(camera, renderer.domElement);
+            renderer.setAnimationLoop(() => { renderer.render(scene, camera); });
+            document.body.appendChild(renderer.domElement);
+            window.addEventListener('resize', () => {
+              const width = window.innerWidth;
+              const height = window.innerHeight;
+              camera.aspect = width / height;
+              camera.updateProjectionMatrix();
+              renderer.setSize(width, height);
+            });
+            window.dispatchEvent(new Event('resize'));
+            const loader = new GLTFLoader();
+            loader.load(
+              '{url}',
+              (gltf) => {
+                const obj = gltf.scene
+                const box = new Box3().setFromObject(obj);
+                const center = box.getCenter(new Vector3())
+                obj.position.add(center.negate())
+                scene.add(obj);
+                const size = box.getSize(new Vector3())
+                const max = Math.max(...size);
+                const fov = camera.fov;
+                camera.position.set(0, 0, max / Math.tan(fov * Math.PI / 360));
+                scene.traverse((node) => {
+                  if (node.isMesh) {
+                    node.material = new MeshStandardMaterial({ wireframe: true });
+                  }
+                });
+              },
+            );
+          </script>
+      </div>
 
   - ################################################################
     # default text types
