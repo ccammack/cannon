@@ -11,8 +11,8 @@ It follows rules defined in its configuration to sample and convert each selecte
 Installing Cannon's client (*cannon*) and server (*cannond*) requires a recent version of [Go](https://go.dev/):
 
 ```
-go install -v github.com/ccammack/cannon/cmd/cannon@0776402b4154d8c31f924fe1c4107c3aa6df29fb
-go install -v github.com/ccammack/cannon/cmd/cannond@0776402b4154d8c31f924fe1c4107c3aa6df29fb
+go install -v github.com/ccammack/cannon/cmd/cannon@04bbfb08a5724d6d502c6ab8f61b8f1d0ffbb0e5
+go install -v github.com/ccammack/cannon/cmd/cannond@04bbfb08a5724d6d502c6ab8f61b8f1d0ffbb0e5
 ```
 
 After installation, copy the default [configuration file](https://github.com/ccammack/cannon/blob/main/.config/cannon/cannon.yml) to the appropriate [XDG_CONFIG_HOME](https://specifications.freedesktop.org/basedir-spec/latest/) location:
