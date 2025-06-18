@@ -79,11 +79,20 @@ func main() {
 				}
 				server.Request("POST", "close", params)
 			} else {
+				var wg sync.WaitGroup
+				wg.Add(1)
+
 				// display contents
-				go displayContents(fname)
+				go func() {
+					defer wg.Done()
+					displayContents(fname)
+				}()
 
 				// display metadata
 				displayMetadata(fname)
+
+				// wait
+				wg.Wait()
 			}
 
 			// lf requires a non-zero return value to disable caching
